@@ -1,0 +1,115 @@
+// Prisma Schema for RecoverAI
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  ABANDONED
+  SUBSCRIPTION_FAILED
+}
+
+enum FailureReason {
+  NONE
+  BANK_ERROR
+  INSUFFICIENT_FUNDS
+  CARD_DECLINED
+  NETWORK_ERROR
+  TIMEOUT
+  MANDATE_FAILURE
+  UNKNOWN
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  NET_BANKING
+  WALLET
+  EMI
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RecoveryStatus {
+  NEW
+  ANALYZED
+  ACTION_REQUIRED
+  RECOVERED
+  FAILED
+  ESCALATED
+}
+
+model Customer {
+  id         String    @id @default(uuid())
+  customerId String    @unique
+  name       String
+  email      String
+  phone      String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  payments   Payment[]
+
+  @@map("customers")
+}
+
+model Payment {
+  id            String         @id @default(uuid())
+  paymentId     String         @unique
+  customerId    String
+  amount        Decimal        @db.Decimal(12, 2)
+  currency      String         @default("INR")
+  status        PaymentStatus
+  failureReason FailureReason
+  retryCount    Int            @default(0)
+  paymentMethod PaymentMethod
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  recoveryCase  RecoveryCase?
+  auditLogs     AuditLog[]
+
+  @@map("payments")
+}
+
+model RecoveryCase {
+  id                         String         @id @default(uuid())
+  caseId                     String         @unique
+  paymentId                  String         @unique
+  riskScore                  Int
+  riskLevel                  RiskLevel
+  status                     RecoveryStatus @default(NEW)
+  estimatedRecoverableAmount Decimal        @db.Decimal(12, 2)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  payment                    Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  auditLogs                  AuditLog[]
+
+  @@map("recovery_cases")
+}
+
+model AuditLog {
+  id             String        @id @default(uuid())
+  paymentId      String?
+  recoveryCaseId String?
+  eventType      String
+  message        String
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+
+  payment        Payment?      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  recoveryCase   RecoveryCase? @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
