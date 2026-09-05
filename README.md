@@ -10,11 +10,13 @@
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-EA4335.svg?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4.svg?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Tests](https://img.shields.io/badge/Tests-30%2F30%20Passing-brightgreen.svg)]()
+[![Demo Video](https://img.shields.io/badge/Demo%20Video-Google%20Drive-4285F4.svg?logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1DzaO9_hG-BcXaiBdanthtBBoEKnrEtpD/view?usp=sharing)
 
 > **Razorpay AI Buildathon Submission**  
 > **Track**: AI Revenue Recovery  
 > **Repository**: [https://github.com/VIJAYAPANDIANT/recover-ai](https://github.com/VIJAYAPANDIANT/recover-ai)  
 > **Product Title**: RecoverAI | Autonomous Bounded Revenue Recovery Engine  
+> **Demo Video Link**: [Watch 5-Min Video Pitch & Live Demo](https://drive.google.com/file/d/1DzaO9_hG-BcXaiBdanthtBBoEKnrEtpD/view?usp=sharing)
 
 ---
 
