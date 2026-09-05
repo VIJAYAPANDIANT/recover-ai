@@ -5,98 +5,85 @@
 [![Express](https://img.shields.io/badge/Express-4.21-lightgrey.svg)](https://expressjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.4-indigo.svg)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2F18-blue.svg)](https://www.postgresql.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5--Flash-orange.svg)](https://ai.google.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-teal.svg)](https://tailwindcss.com/)
 
-> **Day 1 MVP** built for the **Razorpay AI Buildathon**.  
-> A high-performance revenue recovery infrastructure designed to diagnose, quantify, and recover lost subscription and payment revenue.
+> **Day 1 + Day 2 Complete Build** for the **Razorpay AI Buildathon**.  
+> An autonomous revenue recovery platform that detects revenue at risk, diagnoses payment failure root causes using AI, enforces strict safety policies, and executes bounded simulated recoveries with end-to-end audit logging.
 
 ---
 
-## 1. Problem
+## 1. Core Architecture Philosophy
 
-Payment failures account for an estimated 2–5% of gross transaction volume across modern SaaS, direct-to-consumer (D2C), and subscription businesses. In high-volume environments such as Razorpay's merchant ecosystem, failed payments cause:
+RecoverAI strictly enforces separation of concerns:
 
-* **Involuntary Churn**: Legitimate customers lost due to temporary card declines, bank downtime, or expired mandate schedules.
-* **Depleted Customer Lifetime Value (LTV)**: High acquisition costs wasted when billing failures go unaddressed.
-* **Manual Recovery Overhead**: Finance teams relying on static retry rules or tedious manual spreadsheet reconciliation.
-* **Lack of Visibility**: Blind spots in understanding exact "Revenue at Risk" across different payment failure modes.
-
----
-
-## 2. Solution
-
-**RecoverAI** is an autonomous revenue recovery engine. It monitors payment events in real time, deterministically evaluates recoverable risk, generates dedicated recovery cases, and logs every transition for auditing.
-
-* **Deterministic Risk Scoring Engine**: Evaluates payment status, monetary value, and retry counts to prioritize high-value recovery opportunities.
-* **Precise Monetary Accounting**: Utilizes PostgreSQL Decimal precision arithmetic to ensure zero floating-point discrepancies across financial aggregates.
-* **Real-Time Recovery Dashboard**: Surfaces critical metrics—including Revenue at Risk, Recovery Cases, and Failure Distribution—directly computed from PostgreSQL.
-* **Complete Audit Trails**: Captures structured event timelines for every recovery action.
-
----
-
-## 3. Day 1 Features
-
-* **Interactive React SaaS Dashboard**:
-  * Real-time metric cards: *Total Volume*, *Revenue at Risk (INR)*, *Failed Payments*, *Recovery Cases*, *High Risk Cases*, and *Success Rate*.
-  * Interactive Recharts visualizations:
-    * **Payment Status Breakdown** (Donut chart: Success, Failed, Abandoned, Subscription Failed)
-    * **Revenue at Risk by Failure Reason** (Bar chart grouped by failure category)
-    * **Recovery Cases by Risk Level** (High, Medium, Low breakdown)
-  * Recent Cases live table with risk badge indicators and direct inspection links.
-* **Dataset Generator**:
-  * Single-click **"Generate Demo Dataset"** button on the UI (and backend `POST /api/payments/seed`) generating exactly 500 realistic payment records across 50 realistic Indian customer profiles.
-* **Payments Explorer (`/payments`)**:
-  * Multi-dimensional filtering by Payment Status (`SUCCESS`, `FAILED`, `ABANDONED`, `SUBSCRIPTION_FAILED`) and Risk Level (`HIGH`, `MEDIUM`, `LOW`).
-  * Live search by Payment ID, Customer Name, and Customer Email.
-  * Server-side pagination with record counters.
-* **Payment Details Page (`/payments/:id`)**:
-  * Transaction breakdown, customer metadata, and deterministic risk score progress meter.
-  * Associated recovery case linking and audit timeline.
-  * Future AI Diagnostic placeholder (Day 2 roadmap).
-* **Recovery Cases Hub (`/recovery-cases` & `/recovery-cases/:id`)**:
-  * Dedicated queue for at-risk transactions requiring intervention.
-  * Detailed case telemetry, estimated recoverable amount, and audit history.
-* **Audit Logs Page (`/audit-logs`)**:
-  * System-wide chronological event stream with expandable JSON metadata for full traceability.
-
----
-
-## 4. Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    RecoverAI Frontend                       │
-│        React 18 + Vite + Tailwind CSS + Lucide + Recharts   │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ HTTP / REST (Axios)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    RecoverAI Backend                        │
-│             Node.js + Express + TypeScript                  │
-│                                                             │
-│  ┌───────────────────────┐      ┌────────────────────────┐  │
-│  │   Risk Scoring Engine │      │ Metrics Calculation    │  │
-│  └───────────────────────┘      └────────────────────────┘  │
-│  ┌───────────────────────┐      ┌────────────────────────┐  │
-│  │ 500-Record Seed Svc   │      │ Central Error Handling │  │
-│  └───────────────────────┘      └────────────────────────┘  │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ Prisma ORM (v6.4)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   PostgreSQL Database                       │
-│      Customers | Payments | RecoveryCases | AuditLogs       │
-└─────────────────────────────────────────────────────────────┘
+```text
+┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
+│       AI Engine         │       │      Policy Engine      │       │     Recovery Executor   │
+│  (Gemini / Structured)  │ ───►  │    (Safety & Bounds)    │ ───►  │   (Bounded Simulation)  │
+│                         │       │                         │       │                         │
+│ Diagnoses failure cause │       │ Validates 5 safety rules│       │ Executes safe actions:  │
+│ Recommends next action  │       │ Prevents duplicate/risk │       │ - RETRY_PAYMENT         │
+│ Computes probabilities  │       │ Overrides or escalates  │       │ - SEND_RECOVERY_MESSAGE │
+└─────────────────────────┘       └─────────────────────────┘       │ - OFFER_ALTERNATE_PAY   │
+                                                                    │ - HUMAN_ESCALATION      │
+                                                                    └────────────┬────────────┘
+                                                                                 │
+                                                                                 ▼
+                                                                    ┌─────────────────────────┐
+                                                                    │       Audit Trail       │
+                                                                    │ (Immutable Postgres Log)│
+                                                                    └─────────────────────────┘
 ```
 
+> **CRITICAL SAFETY GUARANTEE**: The AI model **NEVER** charges real money, executes financial actions directly, or communicates unsupervised. All actions are validated against deterministic business policies and executed within safe simulated bounds.
+
 ---
 
-## 5. Tech Stack
+## 2. Day 2 Capabilities
+
+### 1. AI Diagnosis & Recommendation Engine (`aiService.ts`)
+* **Structured Output Schema**: Leverages Google Gemini 2.5 (`@google/genai`) with guaranteed JSON output:
+  * `diagnosis`: Human-readable root-cause explanation of the failure.
+  * `recommendedAction`: One of `RETRY_PAYMENT`, `SEND_RECOVERY_MESSAGE`, `OFFER_ALTERNATE_PAYMENT`, `HUMAN_ESCALATION`, `NO_ACTION`.
+  * `reason`: Justification for the selected action.
+  * `confidence`: Float between 0.0 and 1.0.
+  * `expectedRecoveryProbability`: Estimated chance of recovery.
+* **Production-Grade Fallback**: If Gemini API key is not configured or network fails, a deterministic rules-based diagnosis engine seamlessly produces structured recommendations based on failure reason and risk score.
+
+### 2. Policy & Safety Engine (`policyEngine.ts`)
+Before any action can execute, it must pass 5 mandatory deterministic policy rules:
+1. **Rule 1 (Retry Count Limit)**: If `retryCount >= 3`, block `RETRY_PAYMENT` and fallback to `HUMAN_ESCALATION`.
+2. **Rule 2 (High-Value Safeguard)**: If amount $> ₹50,000$, block automated `RETRY_PAYMENT` to prevent merchant balance exposure. Fallback to `HUMAN_ESCALATION`.
+3. **Rule 3 (Customer Opt-Out)**: If customer has `contactOptOut: true`, block `SEND_RECOVERY_MESSAGE` to respect privacy. Fallback to `OFFER_ALTERNATE_PAYMENT`.
+4. **Rule 4 (Successful Payment)**: If payment is already `SUCCESS`, return `allowed: false` with `NO_ACTION`.
+5. **Rule 5 (Unknown Failure Reason)**: If failure reason is `UNKNOWN`, block automated `RETRY_PAYMENT` and require `HUMAN_ESCALATION`.
+
+### 3. Bounded Recovery Execution Engine (`recoveryExecutor.ts`)
+* Supported actions:
+  * `SEND_RECOVERY_MESSAGE`: Simulates WhatsApp/SMS communication with generated payment recovery link.
+  * `OFFER_ALTERNATE_PAYMENT`: Generates simulated UPI Deep Link / NetBanking fallback options.
+  * `RETRY_PAYMENT`: Simulates a safe re-attempt through Razorpay gateway rails.
+  * `HUMAN_ESCALATION`: Flags high-risk cases for finance ops review.
+* **Failure Simulation Mode**: For live demo purposes, operators can toggle `simulateFailure: true` to demonstrate policy stopping rules and repeated-failure escalation.
+* **Audit Trail**: Every execution records execution latency, metadata, attempt counts, and immutable audit logs.
+
+### 4. Real-Time Financial Recovery Metrics (`metricsService.ts`)
+* **Revenue Recovered**: Exact sum of recovered revenue calculated using `Decimal.js`.
+* **Recovery Rate**: $\frac{\text{Revenue Recovered}}{\text{Revenue at Risk}} \times 100$.
+* **Interactive Charts**:
+  * Recovery Performance (At Risk vs. Recovered in ₹).
+  * Recovery Actions Breakdown (Distribution of interventions).
+  * Recovery Outcomes (Successful, Failed, Blocked, Escalated).
+
+---
+
+## 3. Tech Stack
 
 ### Frontend
 * **Framework**: React 18 with TypeScript
 * **Tooling**: Vite
-* **Styling**: Tailwind CSS with dark-mode SaaS aesthetics
+* **Styling**: Tailwind CSS (Dark SaaS theme)
 * **Icons**: Lucide React
 * **Charts**: Recharts
 * **Routing**: React Router v7
@@ -105,193 +92,136 @@ Payment failures account for an estimated 2–5% of gross transaction volume acr
 ### Backend
 * **Runtime**: Node.js (v20+) with TypeScript
 * **Framework**: Express
+* **AI Provider**: Google Gemini 2.5 (`@google/genai`) with structured JSON schema
 * **Database ORM**: Prisma ORM
-* **Database**: PostgreSQL
+* **Database**: PostgreSQL (v16/18)
 * **Financial Calculations**: Decimal.js & PostgreSQL Decimal types
-* **Utilities**: dotenv, cors, tsx
+* **Testing**: Node.js Native Test Runner (`tsx --test`)
 
 ---
 
-## 6. Project Structure
+## 4. Database Schema (Prisma)
 
-```text
-recover-ai/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── common/           # Badge, LoadingSpinner, SkeletonTable, EmptyState, ErrorBanner
-│   │   ├── layouts/              # DashboardLayout with SaaS sidebar and navigation
-│   │   ├── pages/                # Dashboard, Payments, PaymentDetail, RecoveryCases, CaseDetail, AuditLogs
-│   │   ├── services/             # Axios API client
-│   │   ├── types/                # TypeScript domain models
-│   │   ├── App.tsx               # Route declarations
-│   │   ├── main.tsx              # React entry point
-│   │   └── index.css             # Tailwind base & theme
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── tsconfig.json
-│
-├── backend/
-│   ├── src/
-│   │   ├── controllers/          # paymentController, dashboardController, recoveryController, auditLogController
-│   │   ├── middleware/           # errorHandler, notFoundHandler
-│   │   ├── routes/               # Modular Express routers
-│   │   ├── services/             # riskScoreService, seedService, metricsService
-│   │   ├── utils/                # prisma client singleton
-│   │   ├── app.ts                # Express application configuration
-│   │   └── server.ts             # Server entry point with graceful shutdown
-│   ├── prisma/
-│   │   ├── schema.prisma         # Models: Customer, Payment, RecoveryCase, AuditLog
-│   │   └── seed.ts               # Database seed runner
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
-│
-├── docker-compose.yml            # PostgreSQL container definition
-├── package.json                  # Root orchestration scripts
-├── .gitignore
-└── README.md
+```prisma
+model AIAnalysis {
+  id                          String             @id @default(uuid())
+  recoveryCaseId              String             @map("recovery_case_id")
+  diagnosis                   String             @db.Text
+  recommendedAction           RecoveryActionType @map("recommended_action")
+  reason                      String             @db.Text
+  confidence                  Float
+  expectedRecoveryProbability Float              @map("expected_recovery_probability")
+  provider                    String             @default("gemini-2.5-flash")
+  model                       String             @default("gemini-2.5-flash")
+  createdAt                   DateTime           @default(now()) @map("created_at")
+
+  recoveryCase                RecoveryCase       @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+}
+
+model RecoveryAction {
+  id             String               @id @default(uuid())
+  recoveryCaseId String               @map("recovery_case_id")
+  actionType     RecoveryActionType   @map("action_type")
+  status         RecoveryActionStatus @default(PENDING)
+  reason         String?              @db.Text
+  attemptNumber  Int                  @default(1) @map("attempt_number")
+  amount         Decimal?             @db.Decimal(12, 2)
+  executedAt     DateTime?            @map("executed_at")
+  metadata       Json?
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  recoveryCase   RecoveryCase         @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+}
 ```
 
 ---
 
-## 7. Local Setup
+## 5. API Reference
 
-### Prerequisites
-* Node.js (v18 or higher, v22+ recommended)
-* npm (v9+)
-* Docker & Docker Compose (or local PostgreSQL 16+)
-
-### Step-by-Step Instructions
-
-1. **Clone the repository and install dependencies**:
-   ```bash
-   cd c:\Razorpay
-   npm run install:all
-   ```
-
-2. **Start the PostgreSQL database**:
-   * *Via Docker Compose*:
-     ```bash
-     docker compose up -d
-     ```
-   * *Or via local PostgreSQL*: Ensure PostgreSQL is listening and update `backend/.env`.
-
-3. **Configure Environment Variables**:
-   * Ensure `backend/.env` exists (copied from `backend/.env.example`).
-   * Ensure `frontend/.env` exists (copied from `frontend/.env.example`).
-
-4. **Initialize Database and Seed 500 Records**:
-   ```bash
-   cd backend
-   npx prisma db push
-   npm run seed
-   ```
-
-5. **Run the Application**:
-   * **Terminal 1 (Backend)**:
-     ```bash
-     cd backend
-     npm run dev
-     ```
-     Server runs on `http://localhost:5000`.
-   * **Terminal 2 (Frontend)**:
-     ```bash
-     cd frontend
-     npm run dev
-     ```
-     Dashboard runs on `http://localhost:5173`.
-
----
-
-## 8. Environment Variables
-
-### Backend (`backend/.env`)
-```env
-# PostgreSQL connection string
-DATABASE_URL=postgresql://recoverai:recoverai@localhost:5432/recoverai?schema=public
-
-# API server port
-PORT=5000
-
-# Allowed frontend origin for CORS
-FRONTEND_URL=http://localhost:5173
-```
-
-### Frontend (`frontend/.env`)
-```env
-# Backend API Base URL
-VITE_API_URL=http://localhost:5000/api
-```
-
----
-
-## 9. Database Setup & Data Distribution
-
-The Day 1 seed script generates exactly **500 synthetic payment records** with strict distribution:
-
-| Status | Count | Failure Reason | Recovery Case Created? |
-| :--- | :--- | :--- | :--- |
-| **SUCCESS** | **350** | `NONE` | No |
-| **FAILED** | **80** | Distributed (`BANK_ERROR`, `CARD_DECLINED`, `INSUFFICIENT_FUNDS`, etc.) | **Yes (80 cases)** |
-| **ABANDONED** | **40** | `TIMEOUT`, `UNKNOWN` | **Yes (40 cases)** |
-| **SUBSCRIPTION_FAILED** | **30** | `MANDATE_FAILURE`, `INSUFFICIENT_FUNDS`, etc. | **Yes (30 cases)** |
-| **TOTAL** | **500** | — | **150 Recovery Cases** |
-
-### Deterministic Risk Scoring Formula
-$$\text{Score} = \text{Status Weight} + \text{Amount Weight} + \text{Retry Weight} \quad (\text{Capped at } 100)$$
-
-* **Status Weight**: `FAILED (+40)`, `ABANDONED (+30)`, `SUBSCRIPTION_FAILED (+45)`, `SUCCESS (0)`.
-* **Amount Weight**: $\ge ₹10,000 (+25)$, $\ge ₹5,000 (+15)$, $\ge ₹1,000 (+10)$, otherwise $(+5)$.
-* **Retry Weight**: $\ge 3 \text{ retries } (+20)$, $2 \text{ retries } (+15)$, $1 \text{ retry } (+10)$, $0 \text{ retries } (+5)$.
-* **Risk Levels**: `0–39: LOW`, `40–69: MEDIUM`, `70–100: HIGH`.
-
----
-
-## 10. API Endpoints
+### Recovery & AI Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/health` | Health check & service readiness |
-| `POST` | `/api/payments/seed` | Safe, idempotent generation/reset of 500 records |
-| `GET` | `/api/dashboard/metrics` | Real-time aggregates computed from DB |
-| `GET` | `/api/payments` | Paginated payments with search & filters |
-| `GET` | `/api/payments/:id` | Payment details, customer profile & audit timeline |
-| `GET` | `/api/payments/failed` | Filtered list of non-successful payments |
-| `GET` | `/api/recovery/cases` | Paginated recovery cases queue |
-| `GET` | `/api/recovery/cases/:id`| Recovery case telemetry & audit history |
-| `GET` | `/api/audit-logs` | Chronological event logs with JSON metadata |
+| `POST` | `/api/ai/analyze/:caseId` | Run AI diagnosis & generate structured recommendation |
+| `POST` | `/api/recovery/cases/:caseId/evaluate` | Evaluate proposed action against the 5 policy rules |
+| `POST` | `/api/recovery/cases/:caseId/execute` | Execute bounded action with optional failure simulation |
+| `GET` | `/api/dashboard/metrics` | Real-time recovery metrics and chart aggregates |
+| `GET` | `/api/recovery/cases` | Paginated recovery cases with AI & action telemetry |
+| `GET` | `/api/recovery/cases/:id` | Full recovery case details with timeline and actions |
+| `GET` | `/api/payments` | Paginated payments explorer |
+| `GET` | `/api/audit-logs` | Chronological audit logs with filter support |
+| `POST` | `/api/payments/seed` | Reset & seed 500 payments and 150 recovery cases |
 
 ---
 
-## 11. Screenshots Placeholder
+## 6. Local Setup & Running
 
-| Dashboard Overview | Payments Explorer |
-| :---: | :---: |
-| *[Screenshot: Dashboard with KPI Cards & Charts]* | *[Screenshot: Filterable Payments Table]* |
+### 1. Install Dependencies
+```bash
+npm run install:all
+```
 
-| Payment Details & Risk Gauge | Recovery Case Telemetry |
-| :---: | :---: |
-| *[Screenshot: Risk Assessment & Audit Timeline]* | *[Screenshot: Recovery Case & AI Placeholder]* |
+### 2. Configure Environment Variables
+In `backend/.env`:
+```env
+DATABASE_URL="postgresql://recoverai:recoverai@localhost:5433/recoverai?schema=public"
+PORT=5000
+FRONTEND_URL="http://localhost:5173"
+# Optional: GEMINI_API_KEY (graceful fallback active if not provided)
+GEMINI_API_KEY="your_api_key_here"
+```
+
+### 3. Run Migrations & Seed Database
+```bash
+cd backend
+npx prisma db push
+npm run seed
+```
+
+### 4. Run Automated Test Suite
+```bash
+# Run from repository root
+npm test
+```
+*Executes 10 automated unit tests covering all 5 policy rules, AI fallback, and recovery workflow.*
+
+### 5. Build for Production
+```bash
+# Compile backend and frontend
+npm run build
+```
+
+### 6. Start Development Servers
+* **Backend**: `npm run dev:backend` (runs on `http://localhost:5000`)
+* **Frontend**: `npm run dev:frontend` (runs on `http://localhost:5173`)
 
 ---
 
-## 12. Future AI Features (Day 2 Roadmap)
+## 7. Demo Scenarios & How to Test
 
-Day 1 establishes the rock-solid data ingestion, deterministic scoring, and observability foundation. Day 2 introduces the autonomous AI recovery intelligence:
+### Scenario 1: AI Diagnosis & Message Recovery
+1. Navigate to **Recovery Cases** (`/recovery-cases`).
+2. Select a case with `CARD_DECLINED` and `retryCount: 0`.
+3. Click **"Run AI Diagnosis"**. Observe diagnosis, recommended action (`SEND_RECOVERY_MESSAGE`), and confidence.
+4. Observe Policy Check badge: **"Policy Approved"**.
+5. Click **"Execute Recovery Action"**. Confirm execution modal.
+6. Observe simulated WhatsApp message dispatch and recovery status updated to `RECOVERED`.
 
-1. **AI Failure Diagnosis**:
-   * Natural language analysis of bank response codes, ISO 8583 error strings, and gateway telemetry.
-   * Merchant-friendly root-cause summaries explaining *why* the failure occurred.
-2. **AI Recovery Recommendations**:
-   * Dynamic prediction of optimal retry timing based on historical bank processing windows and customer behavior.
-   * Personalized recovery action plans (e.g., instant UPI intent link via WhatsApp vs. automated card mandate retry).
-3. **Policy Engine**:
-   * Merchant-configurable rules specifying retry thresholds, maximum automated interventions, and escalation criteria.
-4. **Bounded Recovery Execution**:
-   * Safe, autonomous execution with strict financial boundaries (no runaway retries, duplicate charges, or excessive notifications).
-5. **Audit-Driven Recovery Workflow**:
-   * Every AI suggestion, decision threshold, and recovery trigger logged into the immutable `AuditLog` timeline.
+### Scenario 2: Policy Engine Block (Retry Limit Exceeded)
+1. Select a case where `retryCount >= 3`.
+2. Run AI diagnosis.
+3. Observe Policy Engine response: **Blocked by Rule 1** (Maximum retry attempts exceeded).
+4. Automated retry is prohibited; policy safely diverts to **HUMAN_ESCALATION**.
+
+### Scenario 3: High-Value Payment Safeguard
+1. Select a payment with amount $> ₹50,000$ (e.g. ₹99,999).
+2. Attempt or evaluate `RETRY_PAYMENT`.
+3. Policy Engine triggers **Rule 2**: Blocks automated retry and flags for manual finance approval.
+
+### Scenario 4: Simulated Failure & Stopping Rules
+1. In the Case Detail page, toggle **"Simulate Failure Scenario"**.
+2. Click **"Execute Recovery Action"**.
+3. Observe action status recorded as `FAILED`, attempt count incremented, and case status transitioned to `ESCALATED` upon reaching failure threshold.
 
 ---
 

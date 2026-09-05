@@ -3,6 +3,7 @@ import paymentRoutes from './paymentRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
 import recoveryRoutes from './recoveryRoutes.js';
 import auditLogRoutes from './auditLogRoutes.js';
+import aiRoutes from './aiRoutes.js';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/payments', paymentRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/recovery', recoveryRoutes);
 router.use('/audit-logs', auditLogRoutes);
+router.use('/ai', aiRoutes);
 
 export default router;

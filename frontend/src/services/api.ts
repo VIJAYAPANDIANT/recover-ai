@@ -5,6 +5,8 @@ import {
   RecoveryCase,
   AuditLog,
   PaginatedResponse,
+  AIAnalysis,
+  PolicyDecision,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -76,5 +78,83 @@ export async function getAuditLogs(params: AuditLogQueryParams = {}): Promise<Pa
 
 export async function getHealthCheck(): Promise<{ status: string; service: string }> {
   const response = await apiClient.get<{ status: string; service: string }>('/health');
+  return response.data;
+}
+
+// --- Day 2 API Functions ---
+
+/**
+ * POST /api/ai/analyze/:caseId
+ * Triggers AI diagnosis and recovery recommendation.
+ */
+export async function analyzeCaseWithAI(caseId: string): Promise<{
+  success: boolean;
+  caseId: string;
+  analysis: AIAnalysis;
+}> {
+  const response = await apiClient.post<{
+    success: boolean;
+    caseId: string;
+    analysis: AIAnalysis;
+  }>(`/ai/analyze/${caseId}`);
+  return response.data;
+}
+
+/**
+ * POST /api/recovery/cases/:caseId/evaluate
+ * Evaluates recovery case against PolicyEngine.
+ */
+export async function evaluateCasePolicy(caseId: string): Promise<{
+  success: boolean;
+  caseId: string;
+  decision: PolicyDecision;
+}> {
+  const response = await apiClient.post<{
+    success: boolean;
+    caseId: string;
+    decision: PolicyDecision;
+  }>(`/recovery/cases/${caseId}/evaluate`);
+  return response.data;
+}
+
+/**
+ * POST /api/recovery/cases/:caseId/execute
+ * Executes policy-approved recovery action.
+ */
+export async function executeRecoveryAction(
+  caseId: string,
+  options: { simulateFailure?: boolean } = {}
+): Promise<{
+  success: boolean;
+  caseId: string;
+  result: {
+    success: boolean;
+    actionType: string;
+    actionStatus: string;
+    caseStatus: string;
+    amountRecovered: string;
+    amountRecoveredNumeric: number;
+    message: string;
+    stoppingRuleTriggered?: boolean;
+    escalatedToHuman?: boolean;
+    actionId?: string;
+  };
+}> {
+  const response = await apiClient.post<{
+    success: boolean;
+    caseId: string;
+    result: {
+      success: boolean;
+      actionType: string;
+      actionStatus: string;
+      caseStatus: string;
+      amountRecovered: string;
+      amountRecoveredNumeric: number;
+      message: string;
+      stoppingRuleTriggered?: boolean;
+      escalatedToHuman?: boolean;
+      actionId?: string;
+    };
+  }>(`/recovery/cases/${caseId}/execute`, options);
   return response.data;
 }

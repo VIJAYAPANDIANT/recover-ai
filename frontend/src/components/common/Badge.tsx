@@ -1,5 +1,39 @@
 import React from 'react';
-import { PaymentStatus, RiskLevel, RecoveryStatus } from '../../types';
+import { PaymentStatus, RiskLevel, RecoveryStatus, RecoveryActionType, RecoveryActionStatus } from '../../types';
+
+interface ActionStatusBadgeProps {
+  status: RecoveryActionStatus;
+}
+
+export const RecoveryActionStatusBadge: React.FC<ActionStatusBadgeProps> = ({ status }) => {
+  switch (status) {
+    case 'SUCCESS':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700/50">
+          SUCCESS
+        </span>
+      );
+    case 'FAILED':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950 text-rose-300 border border-rose-700/50">
+          FAILED
+        </span>
+      );
+    case 'ESCALATED':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-950 text-orange-300 border border-orange-700/50">
+          ESCALATED
+        </span>
+      );
+    case 'PENDING':
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950 text-amber-300 border border-amber-700/50">
+          {status}
+        </span>
+      );
+  }
+};
 
 interface StatusBadgeProps {
   status: PaymentStatus;
@@ -107,7 +141,8 @@ export const RecoveryStatusBadge: React.FC<RecoveryStatusBadgeProps> = ({ status
       );
     case 'RECOVERED':
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-emerald-950/70 text-emerald-300 border border-emerald-800/50">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-500/20">
+          <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           RECOVERED
         </span>
       );
@@ -119,7 +154,8 @@ export const RecoveryStatusBadge: React.FC<RecoveryStatusBadgeProps> = ({ status
       );
     case 'ESCALATED':
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-orange-950/70 text-orange-300 border border-orange-800/50">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-orange-950/80 text-orange-300 border border-orange-700/60 shadow-sm">
+          <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-orange-400"></span>
           ESCALATED
         </span>
       );
@@ -127,6 +163,51 @@ export const RecoveryStatusBadge: React.FC<RecoveryStatusBadgeProps> = ({ status
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-300">
           {status}
+        </span>
+      );
+  }
+};
+
+interface RecoveryActionBadgeProps {
+  action: RecoveryActionType;
+}
+
+export const RecoveryActionBadge: React.FC<RecoveryActionBadgeProps> = ({ action }) => {
+  switch (action) {
+    case 'RETRY_PAYMENT':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-800/50">
+          RETRY PAYMENT
+        </span>
+      );
+    case 'SEND_RECOVERY_MESSAGE':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-950 text-teal-300 border border-teal-800/50">
+          SEND MESSAGE
+        </span>
+      );
+    case 'OFFER_ALTERNATE_PAYMENT':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-950 text-purple-300 border border-purple-800/50">
+          ALT PAYMENT
+        </span>
+      );
+    case 'HUMAN_ESCALATION':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-950 text-orange-300 border border-orange-800/50">
+          HUMAN ESCALATION
+        </span>
+      );
+    case 'NO_ACTION':
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400">
+          NO ACTION
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-300">
+          {action}
         </span>
       );
   }

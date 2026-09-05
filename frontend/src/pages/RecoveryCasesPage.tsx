@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { getRecoveryCases } from '../services/api';
 import { RecoveryCase } from '../types';
-import { RiskBadge, RecoveryStatusBadge } from '../components/common/Badge';
+import { RiskBadge, RecoveryStatusBadge, RecoveryActionBadge } from '../components/common/Badge';
 import { SkeletonTable } from '../components/common/SkeletonTable';
 import { ErrorBanner } from '../components/common/ErrorBanner';
 import { EmptyState } from '../components/common/EmptyState';
@@ -159,7 +159,7 @@ export const RecoveryCasesPage: React.FC = () => {
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-6">
-            <SkeletonTable rows={10} cols={7} />
+            <SkeletonTable rows={10} cols={8} />
           </div>
         ) : cases.length === 0 ? (
           <EmptyState
@@ -174,56 +174,100 @@ export const RecoveryCasesPage: React.FC = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-950/60 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
                   <tr>
-                    <th className="py-3.5 px-6">Case ID</th>
-                    <th className="py-3.5 px-6">Payment ID</th>
-                    <th className="py-3.5 px-6">Customer</th>
-                    <th className="py-3.5 px-6">Recoverable Amount</th>
-                    <th className="py-3.5 px-6">Risk Assessment</th>
-                    <th className="py-3.5 px-6">Status</th>
-                    <th className="py-3.5 px-6">Created Date</th>
-                    <th className="py-3.5 px-6 text-right">Details</th>
+                    <th className="py-3.5 px-5">Case ID</th>
+                    <th className="py-3.5 px-5">Customer</th>
+                    <th className="py-3.5 px-5">Recoverable Amount</th>
+                    <th className="py-3.5 px-5">Risk</th>
+                    <th className="py-3.5 px-5">AI Recommendation</th>
+                    <th className="py-3.5 px-5">Status</th>
+                    <th className="py-3.5 px-5">Execution</th>
+                    <th className="py-3.5 px-5">Created Date</th>
+                    <th className="py-3.5 px-4 text-right">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {cases.map((c) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => navigate(`/recovery-cases/${c.id}`)}
-                      className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
-                    >
-                      <td className="py-3.5 px-6 font-mono text-xs font-semibold text-teal-300 group-hover:underline">
-                        {c.caseId}
-                      </td>
-                      <td className="py-3.5 px-6 font-mono text-xs text-slate-300">
-                        {c.payment?.paymentId}
-                      </td>
-                      <td className="py-3.5 px-6">
-                        <div className="font-medium text-slate-200">{c.payment?.customer?.name || 'N/A'}</div>
-                        <div className="text-xs text-slate-400">{c.payment?.customer?.email}</div>
-                      </td>
-                      <td className="py-3.5 px-6 font-semibold text-slate-100">
-                        {formatINR(c.estimatedRecoverableAmount)}
-                      </td>
-                      <td className="py-3.5 px-6">
-                        <RiskBadge level={c.riskLevel} score={c.riskScore} />
-                      </td>
-                      <td className="py-3.5 px-6">
-                        <RecoveryStatusBadge status={c.status} />
-                      </td>
-                      <td className="py-3.5 px-6 text-xs text-slate-400">
-                        {new Date(c.createdAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="py-3.5 px-6 text-right">
-                        <span className="text-slate-400 group-hover:text-teal-400 transition-colors inline-flex items-center">
-                          <ExternalLink className="w-4 h-4" />
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {cases.map((c) => {
+                    const latestAi = c.aiAnalyses && c.aiAnalyses.length > 0 ? c.aiAnalyses[0] : null;
+                    const latestAction = c.recoveryActions && c.recoveryActions.length > 0 ? c.recoveryActions[0] : null;
+
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/recovery-cases/${c.id}`)}
+                        className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
+                      >
+                        <td className="py-3.5 px-5">
+                          <div className="font-mono text-xs font-semibold text-teal-300 group-hover:underline">
+                            {c.caseId}
+                          </div>
+                          <div className="font-mono text-[11px] text-slate-500">
+                            {c.payment?.paymentId}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <div className="font-medium text-slate-200">{c.payment?.customer?.name || 'N/A'}</div>
+                          <div className="text-xs text-slate-400">{c.payment?.customer?.email}</div>
+                        </td>
+                        <td className="py-3.5 px-5 font-semibold text-slate-100">
+                          {formatINR(c.estimatedRecoverableAmount)}
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <RiskBadge level={c.riskLevel} score={c.riskScore} />
+                        </td>
+                        <td className="py-3.5 px-5">
+                          {latestAi ? (
+                            <div className="space-y-1">
+                              <RecoveryActionBadge action={latestAi.recommendedAction} />
+                              <div className="text-[10px] text-slate-400">
+                                {Math.round(latestAi.confidence * 100)}% conf
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 italic">Not analyzed</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-5">
+                          <RecoveryStatusBadge status={c.status} />
+                        </td>
+                        <td className="py-3.5 px-5">
+                          {latestAction ? (
+                            <div className="space-y-0.5">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                  latestAction.status === 'SUCCESS'
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/50'
+                                    : latestAction.status === 'FAILED'
+                                    ? 'bg-rose-950 text-rose-300 border border-rose-700/50'
+                                    : latestAction.status === 'ESCALATED'
+                                    ? 'bg-orange-950 text-orange-300 border border-orange-700/50'
+                                    : 'bg-amber-950 text-amber-300 border border-amber-700/50'
+                                }`}
+                              >
+                                {latestAction.status}
+                              </span>
+                              <div className="text-[10px] text-slate-500">
+                                Attempt #{latestAction.attemptNumber}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-5 text-xs text-slate-400">
+                          {new Date(c.createdAt).toLocaleDateString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="text-slate-400 group-hover:text-teal-400 transition-colors inline-flex items-center">
+                            <ExternalLink className="w-4 h-4" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

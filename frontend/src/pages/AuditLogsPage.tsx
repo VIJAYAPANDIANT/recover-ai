@@ -89,6 +89,16 @@ export const AuditLogsPage: React.FC = () => {
               className="bg-transparent text-slate-200 focus:outline-none cursor-pointer text-xs"
             >
               <option value="ALL" className="bg-slate-900">All Events</option>
+              <option value="AI_ANALYSIS_CREATED" className="bg-slate-900">AI Analysis Created</option>
+              <option value="POLICY_EVALUATED" className="bg-slate-900">Policy Evaluated</option>
+              <option value="ACTION_APPROVED" className="bg-slate-900">Action Approved</option>
+              <option value="ACTION_BLOCKED" className="bg-slate-900">Action Blocked</option>
+              <option value="RECOVERY_STARTED" className="bg-slate-900">Recovery Started</option>
+              <option value="RECOVERY_SUCCESS" className="bg-slate-900">Recovery Success</option>
+              <option value="RECOVERY_FAILED" className="bg-slate-900">Recovery Failed</option>
+              <option value="MESSAGE_SENT" className="bg-slate-900">Message Sent</option>
+              <option value="ALTERNATE_PAYMENT_OFFERED" className="bg-slate-900">Alt Payment Offered</option>
+              <option value="HUMAN_ESCALATION" className="bg-slate-900">Human Escalation</option>
               <option value="CASE_CREATED" className="bg-slate-900">Case Created</option>
               <option value="DATASET_INITIALIZED" className="bg-slate-900">Dataset Initialized</option>
             </select>

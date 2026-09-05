@@ -22,12 +22,29 @@ export type RecoveryStatus =
   | 'FAILED'
   | 'ESCALATED';
 
+export type RecoveryActionType =
+  | 'RETRY_PAYMENT'
+  | 'SEND_RECOVERY_MESSAGE'
+  | 'OFFER_ALTERNATE_PAYMENT'
+  | 'HUMAN_ESCALATION'
+  | 'NO_ACTION';
+
+export type RecoveryActionStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'EXECUTING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'BLOCKED'
+  | 'ESCALATED';
+
 export interface Customer {
   id: string;
   customerId: string;
   name: string;
   email: string;
   phone: string;
+  contactOptOut: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +66,41 @@ export interface Payment {
   auditLogs?: AuditLog[];
 }
 
+export interface AIAnalysis {
+  id: string;
+  recoveryCaseId: string;
+  diagnosis: string;
+  recommendedAction: RecoveryActionType;
+  reason: string;
+  confidence: number;
+  expectedRecoveryProbability: number;
+  provider: string;
+  model: string;
+  createdAt: string;
+}
+
+export interface RecoveryAction {
+  id: string;
+  recoveryCaseId: string;
+  actionType: RecoveryActionType;
+  status: RecoveryActionStatus;
+  reason?: string | null;
+  attemptNumber: number;
+  amount?: string | null;
+  executedAt?: string | null;
+  metadata?: any;
+  createdAt: string;
+}
+
+export interface PolicyDecision {
+  allowed: boolean;
+  action: RecoveryActionType;
+  fallbackAction?: RecoveryActionType;
+  reason: string;
+  ruleTriggered?: string;
+  evaluatedAt: string;
+}
+
 export interface RecoveryCase {
   id: string;
   caseId: string;
@@ -60,6 +112,8 @@ export interface RecoveryCase {
   createdAt: string;
   updatedAt: string;
   payment?: Payment;
+  aiAnalyses?: AIAnalysis[];
+  recoveryActions?: RecoveryAction[];
   auditLogs?: AuditLog[];
 }
 
@@ -97,13 +151,20 @@ export interface DashboardMetrics {
   subscriptionFailedPayments: number;
   revenueAtRisk: string;
   revenueAtRiskNumeric: number;
-  totalRevenueRecovered: string;
+  revenueRecovered: string;
+  revenueRecoveredNumeric: number;
+  recoveryRate: number;
   recoveryCases: number;
   highRiskCases: number;
   mediumRiskCases: number;
   lowRiskCases: number;
   successRate: number;
   failureRate: number;
+  recoveryAttempts: number;
+  successfulRecoveries: number;
+  failedRecoveries: number;
+  blockedActions: number;
+  escalatedCases: number;
   statusBreakdown: {
     name: string;
     count: number;
@@ -119,6 +180,21 @@ export interface DashboardMetrics {
   }[];
   riskDistribution: {
     level: string;
+    count: number;
+    color: string;
+  }[];
+  recoveryPerformance: {
+    metric: string;
+    amount: number;
+    formatted: string;
+    fill: string;
+  }[];
+  recoveryActionsBreakdown: {
+    action: string;
+    count: number;
+  }[];
+  recoveryOutcomesBreakdown: {
+    outcome: string;
     count: number;
     color: string;
   }[];

@@ -1,4 +1,4 @@
-// Prisma Schema for RecoverAI
+// Prisma Schema for RecoverAI - Day 2
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -49,15 +49,34 @@ enum RecoveryStatus {
   ESCALATED
 }
 
+enum RecoveryActionType {
+  RETRY_PAYMENT
+  SEND_RECOVERY_MESSAGE
+  OFFER_ALTERNATE_PAYMENT
+  HUMAN_ESCALATION
+  NO_ACTION
+}
+
+enum RecoveryActionStatus {
+  PENDING
+  APPROVED
+  EXECUTING
+  SUCCESS
+  FAILED
+  BLOCKED
+  ESCALATED
+}
+
 model Customer {
-  id         String    @id @default(uuid())
-  customerId String    @unique
-  name       String
-  email      String
-  phone      String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  payments   Payment[]
+  id            String    @id @default(uuid())
+  customerId    String    @unique
+  name          String
+  email         String
+  phone         String
+  contactOptOut Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  payments      Payment[]
 
   @@map("customers")
 }
@@ -83,20 +102,56 @@ model Payment {
 }
 
 model RecoveryCase {
-  id                         String         @id @default(uuid())
-  caseId                     String         @unique
-  paymentId                  String         @unique
+  id                         String           @id @default(uuid())
+  caseId                     String           @unique
+  paymentId                  String           @unique
   riskScore                  Int
   riskLevel                  RiskLevel
-  status                     RecoveryStatus @default(NEW)
-  estimatedRecoverableAmount Decimal        @db.Decimal(12, 2)
-  createdAt                  DateTime       @default(now())
-  updatedAt                  DateTime       @updatedAt
+  status                     RecoveryStatus   @default(NEW)
+  estimatedRecoverableAmount Decimal          @db.Decimal(12, 2)
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
 
-  payment                    Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment                    Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   auditLogs                  AuditLog[]
+  aiAnalyses                 AIAnalysis[]
+  recoveryActions            RecoveryAction[]
 
   @@map("recovery_cases")
+}
+
+model AIAnalysis {
+  id                          String             @id @default(uuid())
+  recoveryCaseId              String
+  diagnosis                   String
+  recommendedAction           RecoveryActionType
+  reason                      String
+  confidence                  Float
+  expectedRecoveryProbability Float
+  provider                    String             @default("gemini")
+  model                       String             @default("gemini-2.5-flash")
+  createdAt                   DateTime           @default(now())
+
+  recoveryCase                RecoveryCase       @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@map("ai_analyses")
+}
+
+model RecoveryAction {
+  id             String               @id @default(uuid())
+  recoveryCaseId String
+  actionType     RecoveryActionType
+  status         RecoveryActionStatus
+  reason         String?
+  attemptNumber  Int                  @default(1)
+  amount         Decimal?             @db.Decimal(12, 2)
+  executedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+
+  recoveryCase   RecoveryCase         @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+
+  @@map("recovery_actions")
 }
 
 model AuditLog {

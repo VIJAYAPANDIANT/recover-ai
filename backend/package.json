@@ -10,12 +10,14 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@prisma/client": "^6.4.1",
     "cors": "^2.8.5",
     "decimal.js": "^10.5.0",
