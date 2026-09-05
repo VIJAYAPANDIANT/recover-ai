@@ -2,6 +2,7 @@
   "name": "recover-ai-backend",
   "version": "1.0.0",
   "description": "RecoverAI Express & Prisma Backend Service",
+  "license": "MIT",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

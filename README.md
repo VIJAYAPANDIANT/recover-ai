@@ -1,4 +1,4 @@
-# RecoverAI
+ï»¿# RecoverAI
 
 **AI Revenue Recovery Platform**  
 *Built for the Razorpay AI Buildathon (AI Revenue Recovery Track)*
@@ -26,7 +26,7 @@ Modern digital merchants face massive invisible revenue loss from failed transac
 ## Solution
 
 **RecoverAI** transforms passive payment failure logging into an **intelligent, safety-governed revenue recovery engine**:
-1. **Detects Revenue At Risk**: Analyzes payment telemetry in real time, assigning dynamic risk scores (1–100) and risk tiers (LOW, MEDIUM, HIGH).
+1. **Detects Revenue At Risk**: Analyzes payment telemetry in real time, assigning dynamic risk scores (1â€“100) and risk tiers (LOW, MEDIUM, HIGH).
 2. **AI Diagnosis & Recommendation**: Leverages Google Gemini 2.5 to diagnose the underlying failure reason and recommend bounded interventions with confidence and recovery probability scores.
 3. **Deterministic Policy Safety Engine**: Guarantees merchant balance safety, enforces retry limits, prevents unauthorized re-charges, and respects customer contact privacy.
 4. **Bounded Recovery Execution**: Executes approved workflows through pluggable payment executors (safe simulation or isolated Razorpay Test sandbox).
@@ -41,7 +41,7 @@ RecoverAI strictly enforces separation of concerns:
 `	ext
 Payment Data (UPI, Card, NetBanking, Wallet)
      ?
-Risk Detection (Scores 1–100, Tiering)
+Risk Detection (Scores 1â€“100, Tiering)
      ?
 AI Diagnosis (Gemini 2.5 / Deterministic Fallback)
      ?
@@ -58,24 +58,24 @@ Audit Trail (Immutable PostgreSQL Ledger)
 
 `	ext
 +-------------------------+       +-------------------------+       +-------------------------+
-¦       AI Engine         ¦       ¦      Policy Engine      ¦       ¦    Payment Executor     ¦
-¦  (Gemini / Structured)  ¦ ---?  ¦    (Safety & Bounds)    ¦ ---?  ¦ (Pluggable Abstraction)¦
-¦                         ¦       ¦                         ¦       ¦                         ¦
-¦ Diagnoses failure cause ¦       ¦ Validates 5 safety rules¦       ¦ Safe execution modes:   ¦
-¦ Recommends next action  ¦       ¦ Prevents duplicate/risk ¦       ¦ - SimulatedPaymentExec  ¦
-¦ Computes probabilities  ¦       ¦ Overrides or escalates  ¦       ¦ - RazorpayTestExecutor  ¦
-+-------------------------+       +-------------------------+       ¦                         ¦
-                                                                    ¦ Actions:                ¦
-                                                                    ¦ - RETRY_PAYMENT         ¦
-                                                                    ¦ - SEND_RECOVERY_MESSAGE ¦
-                                                                    ¦ - OFFER_ALTERNATE_PAY   ¦
-                                                                    ¦ - HUMAN_ESCALATION      ¦
+Â¦       AI Engine         Â¦       Â¦      Policy Engine      Â¦       Â¦    Payment Executor     Â¦
+Â¦  (Gemini / Structured)  Â¦ ---?  Â¦    (Safety & Bounds)    Â¦ ---?  Â¦ (Pluggable Abstraction)Â¦
+Â¦                         Â¦       Â¦                         Â¦       Â¦                         Â¦
+Â¦ Diagnoses failure cause Â¦       Â¦ Validates 5 safety rulesÂ¦       Â¦ Safe execution modes:   Â¦
+Â¦ Recommends next action  Â¦       Â¦ Prevents duplicate/risk Â¦       Â¦ - SimulatedPaymentExec  Â¦
+Â¦ Computes probabilities  Â¦       Â¦ Overrides or escalates  Â¦       Â¦ - RazorpayTestExecutor  Â¦
++-------------------------+       +-------------------------+       Â¦                         Â¦
+                                                                    Â¦ Actions:                Â¦
+                                                                    Â¦ - RETRY_PAYMENT         Â¦
+                                                                    Â¦ - SEND_RECOVERY_MESSAGE Â¦
+                                                                    Â¦ - OFFER_ALTERNATE_PAY   Â¦
+                                                                    Â¦ - HUMAN_ESCALATION      Â¦
                                                                     +-------------------------+
-                                                                                 ¦
+                                                                                 Â¦
                                                                                  ?
                                                                     +-------------------------+
-                                                                    ¦       Audit Trail       ¦
-                                                                    ¦ (Immutable Postgres Log)¦
+                                                                    Â¦       Audit Trail       Â¦
+                                                                    Â¦ (Immutable Postgres Log)Â¦
                                                                     +-------------------------+
 `
 
@@ -282,4 +282,5 @@ Total: 30 passed, 0 failed (100% pass rate)
 
 ## License
 
-ISC License © 2026 RecoverAI Team. Built for the Razorpay AI Buildathon.
+MIT License Â© 2026 Vijaya Pandian T / RecoverAI. See [LICENSE](LICENSE) for full details. Built for the Razorpay AI Buildathon.
+
