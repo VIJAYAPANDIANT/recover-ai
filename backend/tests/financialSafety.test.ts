@@ -6,7 +6,7 @@ import { evaluatePolicy } from '../src/services/policyEngine.js';
 import { analyzePaymentRecovery, AIAnalysisInput } from '../src/services/aiService.js';
 import { SimulatedPaymentExecutor } from '../src/services/paymentExecutor.js';
 
-describe('Day 3 - Financial & Execution Safety Verification', () => {
+describe('Financial & Execution Safety Verification', () => {
   test('Policy: retryCount >= 3 blocks RETRY_PAYMENT and diverts to HUMAN_ESCALATION', () => {
     const decision = evaluatePolicy({
       recommendedAction: RecoveryActionType.RETRY_PAYMENT,

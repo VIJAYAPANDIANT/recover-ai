@@ -147,11 +147,11 @@ RecoverAI seeds a deterministic dataset with **5 featured presentation cases** (
 
 | Case ID | Scenario Name | Details & Telemetry | Expected End-to-End Flow | Result |
 | :---: | :--- | :--- | :--- | :---: |
-| **`CASE-1001`** | **High-Probability Recovery** | ₹2,999 · UPI · 0 retries · Transient timeout | AI recommends WhatsApp link $\to$ Policy evaluates **ALLOWED** $\to$ Executor recovers 100% | **RECOVERED** (₹2,999) |
-| **`CASE-1002`** | **Retry Limit Enforcement** | ₹1,499 · Card · 3 prior retries · Repeated decline | AI recommends retry $\to$ Policy Rule 1 detects $\ge 3$ retries $\to$ **BLOCKED** | **ESCALATED** |
-| **`CASE-1003`** | **High-Value Merchant Guard** | ₹75,000 · NetBanking · Exceeds ₹50,000 cap | AI recommends retry $\to$ Policy Rule 2 detects cap violation $\to$ **BLOCKED** | **ESCALATED** (VIP) |
-| **`CASE-1004`** | **Stopping Rules on Failure** | ₹5,999 · UPI · Consecutive execution failures | Executor detects 2nd failure $\to$ triggers `AUTOMATIC_RECOVERY_STOPPED` | **STOPPED & ESCALATED** |
-| **`CASE-1005`** | **AI Outage Circuit Breaker** | ₹12,500 · Mandate failure · AI service outage | Circuit breaker engages $\to$ Structured fallback activates with zero downtime | **SAFE ESCALATION** |
+| **`CASE-1001`** | **High-Probability Recovery** | ₹2,999 · UPI · 0 retries · Transient timeout | AI recommends WhatsApp link → Policy evaluates **ALLOWED** → Executor recovers 100% | **RECOVERED** (₹2,999) |
+| **`CASE-1002`** | **Retry Limit Enforcement** | ₹1,499 · Card · 3 prior retries · Repeated decline | AI recommends retry → Policy Rule 1 detects ≥ 3 retries → **BLOCKED** | **ESCALATED** |
+| **`CASE-1003`** | **High-Value Merchant Guard** | ₹75,000 · NetBanking · Exceeds ₹50,000 cap | AI recommends retry → Policy Rule 2 detects cap violation → **BLOCKED** | **ESCALATED** (VIP) |
+| **`CASE-1004`** | **Stopping Rules on Failure** | ₹5,999 · UPI · Consecutive execution failures | Executor detects 2nd failure → triggers `AUTOMATIC_RECOVERY_STOPPED` | **STOPPED & ESCALATED** |
+| **`CASE-1005`** | **AI Outage Circuit Breaker** | ₹12,500 · Mandate failure · AI service outage | Circuit breaker engages → Structured fallback activates with zero downtime | **SAFE ESCALATION** |
 
 ---
 
@@ -184,17 +184,46 @@ RecoverAI seeds a deterministic dataset with **5 featured presentation cases** (
 
 ## Mathematical Precision & Financial Metrics
 
-Financial calculations avoid floating-point inaccuracies by computing all sums using **Decimal.js**:
+RecoverAI eliminates floating-point rounding errors across all monetary calculations by computing aggregates using [Decimal.js](https://github.com/MikeMcl/decimal.js) with 2-decimal fractional precision.
 
-$$\text{Revenue At Risk} = \sum \text{Amount}_{\text{status} \in \{\text{FAILED, ABANDONED, SUBSCRIPTION\_FAILED}\}}$$
+### 1. Revenue At Risk
+The total monetary value of payments currently in an uncollected or at-risk failure state:
 
-$$\text{Revenue Attempted} = \sum \text{Amount}_{\text{recovery action initiated}}$$
+```text
+Revenue At Risk = ∑ Amount(p)  for all p ∈ { FAILED, ABANDONED, SUBSCRIPTION_FAILED }
+```
 
-$$\text{Revenue Recovered} = \sum \text{Amount}_{\text{case status} = \text{RECOVERED}}$$
+### 2. Revenue Attempted
+The total monetary sum of payments where active recovery interventions have been initiated:
 
-$$\text{Revenue Not Recovered} = \text{Revenue At Risk} - \text{Revenue Recovered}$$
+```text
+Revenue Attempted = ∑ Amount(p)  for all p with active recovery execution
+```
 
-$$\text{Net Recovery Rate (\%)} = \left( \frac{\text{Revenue Recovered}}{\text{Revenue At Risk}} \right) \times 100$$
+### 3. Revenue Recovered
+The verified monetary sum of payments successfully resolved and credited via RecoverAI:
+
+```text
+Revenue Recovered = ∑ Amount(p)  for all cases where status = RECOVERED
+```
+
+### 4. Revenue Not Recovered
+The remaining unrecovered balance across all unresolvable, failed, or blocked transactions:
+
+```text
+Revenue Not Recovered = Revenue At Risk - Revenue Recovered
+```
+
+### 5. Net Recovery Rate (%)
+The definitive recovery efficiency metric of the merchant's payment pipeline:
+
+```text
+                       Revenue Recovered
+Net Recovery Rate (%) = ───────────────── × 100
+                        Revenue At Risk
+```
+
+> **Financial Precision Guarantee**: All database amounts are stored in PostgreSQL as `DECIMAL(12, 2)`. All arithmetic operations in Node.js utilize `Decimal.add()`, `Decimal.sub()`, `Decimal.mul()`, and `Decimal.div()` to ensure zero floating-point drift across enterprise transaction volumes.
 
 ---
 
@@ -206,7 +235,7 @@ The RecoverAI user interface includes:
 - **Revenue by Failure Reason Breakdown**: Highlights top financial loss categories (e.g., Insufficient Funds, Technical Glitches, Network Timeouts, Mandate Failures).
 - **Risk Level Distribution Chart**: Breakdown of exposure across LOW, MEDIUM, and HIGH risk categories.
 - **Strategy Performance Matrix**: Quantifies ROI and conversion rates across WhatsApp Links, Smart Retries, and Alternate Gateways.
-- **Conversion Funnel Visualization**: End-to-end telemetry from Payment Failure $\to$ Risk Evaluated $\to$ AI Diagnosed $\to$ Policy Approved $\to$ Action Executed $\to$ Revenue Recovered.
+- **Conversion Funnel Visualization**: End-to-end telemetry from Payment Failure → Risk Evaluated → AI Diagnosed → Policy Approved → Action Executed → Revenue Recovered.
 - **Interactive Modals**: One-click **"Run Recovery Batch"** and **"Reset Demo Environment"** controls directly accessible on the dashboard.
 
 ---
@@ -237,21 +266,21 @@ RecoverAI includes a seed engine generating a **deterministic 500-payment datase
 
 ```
 Total Records: 500 Transactions
-├── 350 Successful Payments (Baseline Control Group)
-├── 80 Failed Payments (Card declines, insufficient funds, network timeouts)
-├── 40 Abandoned Checkouts (User drop-off, OTP expired, UPI intent cancelled)
-└── 30 Subscription Mandate Failures (Recurring debit failures, card expired)
+|-- 350 Successful Payments (Baseline Control Group)
+|-- 80 Failed Payments (Card declines, insufficient funds, network timeouts)
+|-- 40 Abandoned Checkouts (User drop-off, OTP expired, UPI intent cancelled)
+\-- 30 Subscription Mandate Failures (Recurring debit failures, card expired)
 
 Recovery Cases: 150 Generated Cases
-├── Includes 5 Featured Presentation Cases (CASE-1001 through CASE-1005)
-└── Realistic Indian Payment Amounts (₹499, ₹999, ₹1,499, ₹2,999, ₹5,999, ₹12,500, ₹25,000, ₹75,000)
+|-- Includes 5 Featured Presentation Cases (CASE-1001 through CASE-1005)
+\-- Realistic Indian Payment Amounts (₹499, ₹999, ₹1,499, ₹2,999, ₹5,999, ₹12,500, ₹25,000, ₹75,000)
 ```
 
 ---
 
 ## Automated Testing & Hardening
 
-RecoverAI includes an automated test suite executed via the native Node.js test runner:
+RecoverAI includes a comprehensive automated test suite executed via the native Node.js test runner:
 
 ```bash
 $ npm test
@@ -262,7 +291,7 @@ $ npm test
 > recover-ai-backend@1.0.0 test
 > tsx --test tests/**/*.test.ts
 
-▶ Day 3 - Financial & Execution Safety Verification
+▶ Financial & Execution Safety Verification
   ✔ Policy: retryCount >= 3 blocks RETRY_PAYMENT and diverts to HUMAN_ESCALATION
   ✔ Policy: High value (> ₹50,000) blocks automated RETRY_PAYMENT
   ✔ Policy: SUCCESS payment blocks action with NO_ACTION
@@ -270,35 +299,35 @@ $ npm test
   ✔ AI Service: Graceful failure handling and emergency circuit breaker
   ✔ Payment Executor: Safe simulated failure handling
   ✔ Measurement: Accurate Decimal financial formulas and recovery rate
-✔ Day 3 - Financial & Execution Safety Verification (192.7ms)
+✔ Financial & Execution Safety Verification (190.2ms)
 
-▶ Day 4 - Final Submission & Production Hardening Test Suite
+▶ Platform Hardening & Production Reliability Suite
   ▶ Policy Engine Rules
     ✔ Rule 1: retryCount >= 3 blocks RETRY_PAYMENT and diverts to HUMAN_ESCALATION
     ✔ Rule 2: amount > 50000 blocks automated RETRY_PAYMENT and escalates
     ✔ Rule 3: contact opt-out blocks SEND_RECOVERY_MESSAGE and falls back to alternate payment
     ✔ Rule 4: SUCCESS payment blocks action with NO_ACTION
     ✔ Rule 5: UNKNOWN failure reason blocks RETRY_PAYMENT and requires HUMAN_ESCALATION
-  ✔ Policy Engine Rules (24.9ms)
+  ✔ Policy Engine Rules (18.2ms)
   ▶ AI Diagnostic Service
     ✔ AI Fallback generates structured diagnosis and valid probabilities
     ✔ AI Provider Outage triggers Circuit Breaker and safe Human Escalation
-  ✔ AI Diagnostic Service (2.4ms)
+  ✔ AI Diagnostic Service (2.1ms)
   ▶ Recovery Executor & Payment Simulation
     ✔ SimulatedPaymentExecutor executes successful recovery with positive amount
     ✔ SimulatedPaymentExecutor failure simulation records FAILED with zero amount
     ✔ Blocked policy action is strictly prevented from executing
-  ✔ Recovery Executor & Payment Simulation (189.7ms)
+  ✔ Recovery Executor & Payment Simulation (186.0ms)
   ▶ Idempotency & Duplicate Execution Protection
     ✔ Duplicate recovery attempt on an already recovered case returns already executed message
-  ✔ Idempotency & Duplicate Execution Protection (431.2ms)
+  ✔ Idempotency & Duplicate Execution Protection (347.6ms)
   ▶ Batch Recovery Pipeline
     ✔ Batch runner executes bounded limit and calculates dynamic financial aggregates
-  ✔ Batch Recovery Pipeline (655.2ms)
+  ✔ Batch Recovery Pipeline (568.0ms)
   ▶ Demo Dataset Reset
     ✔ Demo reset restores exact 500 payment dataset breakdown and 150 cases
-  ✔ Demo Dataset Reset (1857.5ms)
-✔ Day 4 - Final Submission & Production Hardening Test Suite (3164.2ms)
+  ✔ Demo Dataset Reset (1826.5ms)
+✔ Platform Hardening & Production Reliability Suite (2950.6ms)
 
 ✔ Policy Engine - Rule 1: Retry limit (retryCount >= 3) blocks RETRY_PAYMENT
 ✔ Policy Engine - Rule 2: High-value payment (> ₹50,000) blocks automated RETRY_PAYMENT
@@ -493,4 +522,4 @@ recover-ai/
 
 - **License**: Released under the [MIT License](LICENSE).
 - **Author**: Vijaya Pandian T ([@VIJAYAPANDIANT](https://github.com/VIJAYAPANDIANT))
-- **Hackathon**: Developed for the **Razorpay AI Buildathon  -  AI Revenue Recovery Track (2026)**.
+- **Hackathon**: Developed for the **Razorpay AI Buildathon — AI Revenue Recovery Track (2026)**.

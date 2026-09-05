@@ -15,7 +15,7 @@ import { executeRecoveryAction } from '../src/services/recoveryExecutor.js';
 import { runRecoveryBatch } from '../src/services/batchRecoveryService.js';
 import { seedDemoDataset } from '../src/services/seedService.js';
 
-describe('Day 4 - Final Submission & Production Hardening Test Suite', () => {
+describe('Platform Hardening & Production Reliability Suite', () => {
   // --- 1. POLICY ENGINE SAFETY CHECKS ---
   describe('Policy Engine Rules', () => {
     test('Rule 1: retryCount >= 3 blocks RETRY_PAYMENT and diverts to HUMAN_ESCALATION', () => {
