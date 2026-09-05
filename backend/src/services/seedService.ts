@@ -98,6 +98,8 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
   // Use transaction to ensure safe reset without orphaned data
   return await prisma.$transaction(async (tx) => {
     // 1. Clean existing records in correct foreign key order
+    await tx.recoveryAction.deleteMany();
+    await tx.aIAnalysis.deleteMany();
     await tx.auditLog.deleteMany();
     await tx.recoveryCase.deleteMany();
     await tx.payment.deleteMany();

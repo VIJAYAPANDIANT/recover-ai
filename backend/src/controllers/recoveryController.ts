@@ -3,6 +3,7 @@ import { RecoveryStatus, RiskLevel, RecoveryActionType, RecoveryActionStatus, Pr
 import prisma from '../utils/prisma.js';
 import { evaluatePolicy } from '../services/policyEngine.js';
 import { executeRecoveryAction } from '../services/recoveryExecutor.js';
+import { runRecoveryBatch } from '../services/batchRecoveryService.js';
 
 export async function getRecoveryCases(req: Request, res: Response, next: NextFunction) {
   try {
@@ -294,11 +295,34 @@ export async function executeCaseAction(req: Request, res: Response, next: NextF
       simulateFailure: !!simulateFailure,
     });
 
+    if (!executionResult.success && executionResult.message.includes('already')) {
+      res.status(409).json({
+        success: false,
+        message: executionResult.message,
+        result: executionResult,
+      });
+      return;
+    }
+
     res.status(200).json({
       success: true,
       caseId: recoveryCase.caseId,
       result: executionResult,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function runBatchRecoveryHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const limit = parseInt(req.body?.limit as string) || 50;
+    const includeEscalated = req.body?.includeEscalated === true;
+    const simulateFailure = req.body?.simulateFailure === true;
+
+    const result = await runRecoveryBatch({ limit, includeEscalated, simulateFailure });
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

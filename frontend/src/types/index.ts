@@ -1,16 +1,16 @@
 export type PaymentStatus = 'SUCCESS' | 'FAILED' | 'ABANDONED' | 'SUBSCRIPTION_FAILED';
 
+export type PaymentMethod = 'CARD' | 'UPI' | 'NET_BANKING' | 'WALLET' | 'EMI';
+
 export type FailureReason =
-  | 'NONE'
-  | 'BANK_ERROR'
-  | 'INSUFFICIENT_FUNDS'
   | 'CARD_DECLINED'
-  | 'NETWORK_ERROR'
+  | 'INSUFFICIENT_FUNDS'
+  | 'BANK_ERROR'
   | 'TIMEOUT'
   | 'MANDATE_FAILURE'
-  | 'UNKNOWN';
-
-export type PaymentMethod = 'UPI' | 'CARD' | 'NET_BANKING' | 'WALLET' | 'EMI';
+  | 'NETWORK_ERROR'
+  | 'UNKNOWN'
+  | 'NONE';
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -31,11 +31,8 @@ export type RecoveryActionType =
 
 export type RecoveryActionStatus =
   | 'PENDING'
-  | 'APPROVED'
-  | 'EXECUTING'
   | 'SUCCESS'
   | 'FAILED'
-  | 'BLOCKED'
   | 'ESCALATED';
 
 export interface Customer {
@@ -43,10 +40,11 @@ export interface Customer {
   customerId: string;
   name: string;
   email: string;
-  phone: string;
-  contactOptOut: boolean;
+  phone?: string | null;
+  contactOptOut?: boolean;
   createdAt: string;
   updatedAt: string;
+  payments?: Payment[];
 }
 
 export interface Payment {
@@ -149,10 +147,15 @@ export interface DashboardMetrics {
   failedPayments: number;
   abandonedPayments: number;
   subscriptionFailedPayments: number;
+  paymentsAtRisk: number;
   revenueAtRisk: string;
   revenueAtRiskNumeric: number;
+  revenueAttempted: string;
+  revenueAttemptedNumeric: number;
   revenueRecovered: string;
   revenueRecoveredNumeric: number;
+  revenueNotRecovered: string;
+  revenueNotRecoveredNumeric: number;
   recoveryRate: number;
   recoveryCases: number;
   highRiskCases: number;
@@ -198,5 +201,94 @@ export interface DashboardMetrics {
     count: number;
     color: string;
   }[];
+  funnel: {
+    revenueAtRisk: number;
+    eligibleCases: number;
+    aiAnalyzed: number;
+    policyApproved: number;
+    recoveryAttempted: number;
+    revenueRecovered: number;
+  };
   recentCases: RecoveryCase[];
+}
+
+export interface BatchRecoveryCaseSummary {
+  caseId: string;
+  action: RecoveryActionType;
+  actionStatus: RecoveryActionStatus;
+  policyAllowed: boolean;
+  amount: number;
+}
+
+export interface BatchRecoveryResult {
+  processed: number;
+  approved: number;
+  blocked: number;
+  escalated: number;
+  successful: number;
+  failed: number;
+  revenueRecovered: number;
+  revenueAttempted: number;
+  cases: BatchRecoveryCaseSummary[];
+}
+
+export interface StrategyPerformanceItem {
+  strategy: RecoveryActionType;
+  strategyLabel: string;
+  attempts: number;
+  successes: number;
+  failures: number;
+  amountAttempted: number;
+  amountRecovered: number;
+  successRate: number;
+}
+
+export interface FailureReasonAnalysisItem {
+  reason: string;
+  rawReason: string;
+  cases: number;
+  revenueAtRisk: number;
+  revenueRecovered: number;
+  recoveryRate: number;
+}
+
+export interface RiskAnalysisItem {
+  riskLevel: RiskLevel;
+  cases: number;
+  revenueAtRisk: number;
+  revenueRecovered: number;
+  recoveryRate: number;
+  color: string;
+}
+
+export interface SystemStatus {
+  services: {
+    database: {
+      name: string;
+      status: string;
+      latencyMs: number;
+      connected: boolean;
+    };
+    aiService: {
+      name: string;
+      provider: string;
+      status: string;
+      connected: boolean;
+      isNativeGemini: boolean;
+    };
+    paymentMode: {
+      name: string;
+      mode: string;
+      status: string;
+      isSimulation: boolean;
+      demoMode: boolean;
+    };
+    policyEngine: {
+      name: string;
+      status: string;
+      rulesEnforced: number;
+      active: boolean;
+    };
+  };
+  timestamp: string;
 }

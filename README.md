@@ -8,8 +8,8 @@
 [![Gemini](https://img.shields.io/badge/Gemini-2.5--Flash-orange.svg)](https://ai.google.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-teal.svg)](https://tailwindcss.com/)
 
-> **Day 1 + Day 2 Complete Build** for the **Razorpay AI Buildathon**.  
-> An autonomous revenue recovery platform that detects revenue at risk, diagnoses payment failure root causes using AI, enforces strict safety policies, and executes bounded simulated recoveries with end-to-end audit logging.
+> **Day 1 + Day 2 + Day 3 Complete Build** for the **Razorpay AI Buildathon** (AI Revenue Recovery Track).  
+> An autonomous revenue recovery platform that detects revenue at risk, diagnoses payment failure root causes using AI, enforces strict safety policies, executes bounded recoveries via pluggable payment executors, and measures financial recovery outcomes in real-time.
 
 ---
 
@@ -19,13 +19,17 @@ RecoverAI strictly enforces separation of concerns:
 
 ```text
 ┌─────────────────────────┐       ┌─────────────────────────┐       ┌─────────────────────────┐
-│       AI Engine         │       │      Policy Engine      │       │     Recovery Executor   │
-│  (Gemini / Structured)  │ ───►  │    (Safety & Bounds)    │ ───►  │   (Bounded Simulation)  │
+│       AI Engine         │       │      Policy Engine      │       │    Payment Executor     │
+│  (Gemini / Structured)  │ ───►  │    (Safety & Bounds)    │ ───►  │ (Pluggable Abstraction)│
 │                         │       │                         │       │                         │
-│ Diagnoses failure cause │       │ Validates 5 safety rules│       │ Executes safe actions:  │
-│ Recommends next action  │       │ Prevents duplicate/risk │       │ - RETRY_PAYMENT         │
-│ Computes probabilities  │       │ Overrides or escalates  │       │ - SEND_RECOVERY_MESSAGE │
-└─────────────────────────┘       └─────────────────────────┘       │ - OFFER_ALTERNATE_PAY   │
+│ Diagnoses failure cause │       │ Validates 5 safety rules│       │ Safe execution modes:   │
+│ Recommends next action  │       │ Prevents duplicate/risk │       │ - SimulatedPaymentExec  │
+│ Computes probabilities  │       │ Overrides or escalates  │       │ - RazorpayTestExecutor  │
+└─────────────────────────┘       └─────────────────────────┘       │                         │
+                                                                    │ Actions:                │
+                                                                    │ - RETRY_PAYMENT         │
+                                                                    │ - SEND_RECOVERY_MESSAGE │
+                                                                    │ - OFFER_ALTERNATE_PAY   │
                                                                     │ - HUMAN_ESCALATION      │
                                                                     └────────────┬────────────┘
                                                                                  │
@@ -36,45 +40,41 @@ RecoverAI strictly enforces separation of concerns:
                                                                     └─────────────────────────┘
 ```
 
-> **CRITICAL SAFETY GUARANTEE**: The AI model **NEVER** charges real money, executes financial actions directly, or communicates unsupervised. All actions are validated against deterministic business policies and executed within safe simulated bounds.
+> **CRITICAL SAFETY GUARANTEE**: RecoverAI **NEVER** charges real money, executes financial transactions directly, or communicates unsupervised. All actions are executed either in safe simulation mode or against Razorpay's isolated test sandbox with `notes.is_simulated = "true"`.
 
 ---
 
-## 2. Day 2 Capabilities
+## 2. Core Capabilities
 
-### 1. AI Diagnosis & Recommendation Engine (`aiService.ts`)
-* **Structured Output Schema**: Leverages Google Gemini 2.5 (`@google/genai`) with guaranteed JSON output:
-  * `diagnosis`: Human-readable root-cause explanation of the failure.
-  * `recommendedAction`: One of `RETRY_PAYMENT`, `SEND_RECOVERY_MESSAGE`, `OFFER_ALTERNATE_PAYMENT`, `HUMAN_ESCALATION`, `NO_ACTION`.
-  * `reason`: Justification for the selected action.
-  * `confidence`: Float between 0.0 and 1.0.
-  * `expectedRecoveryProbability`: Estimated chance of recovery.
-* **Production-Grade Fallback**: If Gemini API key is not configured or network fails, a deterministic rules-based diagnosis engine seamlessly produces structured recommendations based on failure reason and risk score.
+### Day 1: Ingestion, Detection & Foundation
+* 500 realistic synthetic payments across UPI, Cards, NetBanking, and Wallets.
+* 150 auto-detected recovery cases with calculated risk scores (1-100) and risk tiers (`LOW`, `MEDIUM`, `HIGH`).
+* Complete PostgreSQL schema with Prisma ORM and full audit logging.
 
-### 2. Policy & Safety Engine (`policyEngine.ts`)
-Before any action can execute, it must pass 5 mandatory deterministic policy rules:
-1. **Rule 1 (Retry Count Limit)**: If `retryCount >= 3`, block `RETRY_PAYMENT` and fallback to `HUMAN_ESCALATION`.
-2. **Rule 2 (High-Value Safeguard)**: If amount $> ₹50,000$, block automated `RETRY_PAYMENT` to prevent merchant balance exposure. Fallback to `HUMAN_ESCALATION`.
-3. **Rule 3 (Customer Opt-Out)**: If customer has `contactOptOut: true`, block `SEND_RECOVERY_MESSAGE` to respect privacy. Fallback to `OFFER_ALTERNATE_PAYMENT`.
-4. **Rule 4 (Successful Payment)**: If payment is already `SUCCESS`, return `allowed: false` with `NO_ACTION`.
-5. **Rule 5 (Unknown Failure Reason)**: If failure reason is `UNKNOWN`, block automated `RETRY_PAYMENT` and require `HUMAN_ESCALATION`.
+### Day 2: AI Diagnosis + Safety Policy Engine + Bounded Execution
+* **AI Diagnosis Engine**: Google Gemini 2.5 with structured output schema and deterministic fallback.
+* **Safety & Business Policy Engine**: 5 deterministic rules protecting customer trust and preventing repeated declines.
+* **Bounded Execution Engine**: Simulates SMS/WhatsApp messages, UPI deep-links, gateway retries, and escalations.
 
-### 3. Bounded Recovery Execution Engine (`recoveryExecutor.ts`)
-* Supported actions:
-  * `SEND_RECOVERY_MESSAGE`: Simulates WhatsApp/SMS communication with generated payment recovery link.
-  * `OFFER_ALTERNATE_PAYMENT`: Generates simulated UPI Deep Link / NetBanking fallback options.
-  * `RETRY_PAYMENT`: Simulates a safe re-attempt through Razorpay gateway rails.
-  * `HUMAN_ESCALATION`: Flags high-risk cases for finance ops review.
-* **Failure Simulation Mode**: For live demo purposes, operators can toggle `simulateFailure: true` to demonstrate policy stopping rules and repeated-failure escalation.
-* **Audit Trail**: Every execution records execution latency, metadata, attempt counts, and immutable audit logs.
-
-### 4. Real-Time Financial Recovery Metrics (`metricsService.ts`)
-* **Revenue Recovered**: Exact sum of recovered revenue calculated using `Decimal.js`.
-* **Recovery Rate**: $\frac{\text{Revenue Recovered}}{\text{Revenue at Risk}} \times 100$.
-* **Interactive Charts**:
-  * Recovery Performance (At Risk vs. Recovered in ₹).
-  * Recovery Actions Breakdown (Distribution of interventions).
-  * Recovery Outcomes (Successful, Failed, Blocked, Escalated).
+### Day 3: Measurement + Razorpay Test Integration + Reliability + Production Dashboard
+* **Real Batch Recovery Runner (`POST /api/recovery/run-batch`)**:
+  * Processes up to $N$ eligible recovery cases in a single automated pipeline.
+  * Dynamically executes: AI diagnosis $\to$ Policy validation $\to$ Bounded execution $\to$ Audit logging $\to$ Real-time financial metrics.
+  * Zero hardcoding: all aggregates are dynamically calculated and committed to PostgreSQL.
+* **Pluggable Payment Executor Abstraction (`paymentExecutor.ts`)**:
+  * `PaymentExecutor` interface standardizes `retryPayment()`, `sendRecoveryMessage()`, and `offerAlternatePayment()`.
+  * `SimulatedPaymentExecutor`: Fully bounded, zero external side-effects, fast deterministic simulation.
+  * `RazorpayTestExecutor`: Safe test sandbox integration creating test payment links with `notes.is_simulated: true`.
+* **Precision Financial Measurement (`Decimal.js`)**:
+  * Real-time metrics: Revenue At Risk, Revenue Attempted, Revenue Recovered, Not Recovered, and Net Recovery Rate.
+  * Dynamic analytics: Strategy Performance, Failure Reason Recoverability, and Risk Tier Distribution.
+* **Reliability, Idempotency & Circuit Breakers**:
+  * Idempotency protection prevents duplicate charges on already recovered cases (returns HTTP 409).
+  * Automated stopping rules escalate repeated failures ($\ge 2$ consecutive failures $\to$ `HUMAN_ESCALATION`).
+  * AI failure circuit breaker (`AI_SERVICE_ERROR`) gracefully records audit events and diverts cases safely.
+* **Global System Health & Demo Reset**:
+  * `GET /api/system/status`: Real-time health monitoring of PostgreSQL, AI Service, Payment Mode, and Policy Rules.
+  * `POST /api/demo/reset`: One-click demo restoration returning dataset to pristine 500 payments & 150 cases.
 
 ---
 
@@ -138,19 +138,25 @@ model RecoveryAction {
 
 ## 5. API Reference
 
-### Recovery & AI Endpoints
+### Recovery, AI & Measurement Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
+| `POST` | `/api/recovery/run-batch` | **Run real batch recovery experiment** (bounded AI + policy + execution) |
+| `GET` | `/api/dashboard/metrics` | Real-time recovery metrics and financial aggregates |
+| `GET` | `/api/dashboard/strategy-performance` | Success rate & recovered ₹ per recovery strategy |
+| `GET` | `/api/dashboard/failure-analysis` | Recoverability rate breakdown per failure reason |
+| `GET` | `/api/dashboard/risk-analysis` | Risk score distribution & financial exposure |
+| `GET` | `/api/dashboard/recovery-performance` | Timeline comparison of revenue at risk vs. recovered |
+| `GET` | `/api/system/status` | Real-time status of DB, AI engine, payment rails & policies |
+| `POST` | `/api/demo/reset` | **One-click demo reset** to clean 500 payments & 150 cases |
 | `POST` | `/api/ai/analyze/:caseId` | Run AI diagnosis & generate structured recommendation |
 | `POST` | `/api/recovery/cases/:caseId/evaluate` | Evaluate proposed action against the 5 policy rules |
 | `POST` | `/api/recovery/cases/:caseId/execute` | Execute bounded action with optional failure simulation |
-| `GET` | `/api/dashboard/metrics` | Real-time recovery metrics and chart aggregates |
 | `GET` | `/api/recovery/cases` | Paginated recovery cases with AI & action telemetry |
 | `GET` | `/api/recovery/cases/:id` | Full recovery case details with timeline and actions |
 | `GET` | `/api/payments` | Paginated payments explorer |
 | `GET` | `/api/audit-logs` | Chronological audit logs with filter support |
-| `POST` | `/api/payments/seed` | Reset & seed 500 payments and 150 recovery cases |
 
 ---
 
@@ -167,8 +173,12 @@ In `backend/.env`:
 DATABASE_URL="postgresql://recoverai:recoverai@localhost:5433/recoverai?schema=public"
 PORT=5000
 FRONTEND_URL="http://localhost:5173"
+PAYMENT_EXECUTOR_MODE="SIMULATION" # or RAZORPAY_TEST
 # Optional: GEMINI_API_KEY (graceful fallback active if not provided)
 GEMINI_API_KEY="your_api_key_here"
+# Optional for RAZORPAY_TEST mode:
+# RAZORPAY_KEY_ID="rzp_test_..."
+# RAZORPAY_KEY_SECRET="..."
 ```
 
 ### 3. Run Migrations & Seed Database
@@ -183,7 +193,7 @@ npm run seed
 # Run from repository root
 npm test
 ```
-*Executes 10 automated unit tests covering all 5 policy rules, AI fallback, and recovery workflow.*
+*Executes 17 automated unit and integration tests covering all 5 policy rules, payment executor abstractions, AI fallback, Decimal financial measurement, and recovery workflows.*
 
 ### 5. Build for Production
 ```bash

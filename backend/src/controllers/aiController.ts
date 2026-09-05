@@ -52,6 +52,7 @@ export async function analyzeCase(req: Request, res: Response, next: NextFunctio
       riskScore: recoveryCase.riskScore,
       riskLevel: recoveryCase.riskLevel,
       contactOptOut: customer.contactOptOut,
+      simulateAiFailure: req.body?.simulateAiFailure === true,
     };
 
     // 3. Run AI Analysis (Gemini with safe fallback)
@@ -71,21 +72,42 @@ export async function analyzeCase(req: Request, res: Response, next: NextFunctio
       },
     });
 
-    // Update case status to ANALYZED if NEW
-    if (recoveryCase.status === RecoveryStatus.NEW) {
+    // Update case status: If AI Service error, escalate; else if NEW, mark ANALYZED
+    if (analysis.isAiServiceError) {
+      await prisma.recoveryCase.update({
+        where: { id: recoveryCase.id },
+        data: { status: RecoveryStatus.ESCALATED },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          paymentId: payment.id,
+          recoveryCaseId: recoveryCase.id,
+          eventType: 'AI_SERVICE_ERROR',
+          message: 'AI analysis unavailable. Automatic recovery was not attempted. Case escalated safely.',
+          metadata: {
+            analysisId: storedAnalysis.id,
+            error: analysis.reason,
+            actionTaken: 'HUMAN_ESCALATION',
+          },
+        },
+      });
+    } else if (recoveryCase.status === RecoveryStatus.NEW) {
       await prisma.recoveryCase.update({
         where: { id: recoveryCase.id },
         data: { status: RecoveryStatus.ANALYZED },
       });
     }
 
-    // 5. Create structured Audit Log
+    // 5. Create structured Audit Log for the recommendation
     await prisma.auditLog.create({
       data: {
         paymentId: payment.id,
         recoveryCaseId: recoveryCase.id,
-        eventType: 'AI_ANALYSIS_CREATED',
-        message: `AI recommended ${analysis.recommendedAction} with ${(analysis.confidence * 100).toFixed(0)}% confidence`,
+        eventType: analysis.isAiServiceError ? 'HUMAN_ESCALATION' : 'AI_ANALYSIS_CREATED',
+        message: analysis.isAiServiceError
+          ? 'AI unavailable; automatic safe escalation triggered.'
+          : `AI recommended ${analysis.recommendedAction} with ${(analysis.confidence * 100).toFixed(0)}% confidence`,
         metadata: {
           analysisId: storedAnalysis.id,
           diagnosis: analysis.diagnosis,

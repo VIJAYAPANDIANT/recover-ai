@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   DollarSign,
   TrendingUp,
@@ -7,12 +7,11 @@ import {
   ShieldAlert,
   ArrowUpRight,
   PieChart as PieChartIcon,
-  BarChart3,
   Layers,
   CheckCircle2,
-  ShieldCheck,
-  AlertTriangle,
   Sparkles,
+  Play,
+  X,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -26,8 +25,8 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
-import { getDashboardMetrics } from '../services/api';
-import { DashboardMetrics } from '../types';
+import { getDashboardMetrics, runRecoveryBatch } from '../services/api';
+import { DashboardMetrics, BatchRecoveryResult } from '../types';
 import { RiskBadge, RecoveryStatusBadge, RecoveryActionBadge } from '../components/common/Badge';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorBanner } from '../components/common/ErrorBanner';
@@ -45,9 +44,19 @@ export const formatINR = (val: string | number): string => {
 };
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Batch Modal & Execution States
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchLimit, setBatchLimit] = useState(50);
+  const [simulateFailure, setSimulateFailure] = useState(false);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchStep, setBatchStep] = useState(0);
+  const [batchResult, setBatchResult] = useState<BatchRecoveryResult | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -65,7 +74,6 @@ export const DashboardPage: React.FC = () => {
   useEffect(() => {
     fetchMetrics();
 
-    // Listen for custom event triggered when demo dataset is reseeded or recovery action runs
     const handleDatasetSeeded = () => {
       fetchMetrics();
     };
@@ -74,6 +82,33 @@ export const DashboardPage: React.FC = () => {
       window.removeEventListener('recoverai:dataset-seeded', handleDatasetSeeded);
     };
   }, [fetchMetrics]);
+
+  // Execute Batch Recovery Experiment
+  const handleRunBatch = async () => {
+    try {
+      setBatchRunning(true);
+      setBatchResult(null);
+      setBatchError(null);
+      setBatchStep(1); // Preparing cases
+
+      // Visual pipeline progression
+      setTimeout(() => setBatchStep(2), 600); // Analyzing with AI
+      setTimeout(() => setBatchStep(3), 1200); // Applying policies
+      setTimeout(() => setBatchStep(4), 1800); // Executing actions
+
+      const result = await runRecoveryBatch(batchLimit, { simulateFailure });
+
+      setBatchStep(5); // Calculating recovery
+      setBatchResult(result);
+      // Refresh dashboard metrics
+      await fetchMetrics();
+      window.dispatchEvent(new CustomEvent('recoverai:dataset-seeded'));
+    } catch (err: any) {
+      setBatchError(err.response?.data?.error?.message || err.message || 'Failed to execute recovery batch');
+    } finally {
+      setBatchRunning(false);
+    }
+  };
 
   if (loading && !metrics) {
     return <LoadingSpinner size="lg" label="Computing real-time recovery metrics from PostgreSQL..." />;
@@ -87,7 +122,7 @@ export const DashboardPage: React.FC = () => {
     return (
       <EmptyState
         title="No Payment Data Available"
-        description="Click 'Generate Demo Dataset' above to populate 500 realistic payment records and recovery cases."
+        description="Initialize the demo environment with 500 realistic payment records and 150 recovery cases."
         actionLabel="Load Demo Data"
         onAction={fetchMetrics}
       />
@@ -96,63 +131,93 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Top Banner / Hero */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-teal-950/40 border border-slate-800/80 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
-              DAY 2 ACTIVE
-            </span>
-            <span className="text-xs text-slate-400">AI Diagnosis · Safety Policies · Bounded Execution</span>
+      {/* 1. FinTech SaaS Hero Section */}
+      <div className="relative overflow-hidden p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/95 to-teal-950/40 border border-slate-800/80 shadow-2xl">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm">
+                <Sparkles className="w-3 h-3 mr-1" />
+                AUTONOMOUS REVENUE RECOVERY
+              </span>
+              <span className="text-xs text-slate-400">Razorpay Buildathon</span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+              Recover revenue that would otherwise be lost.
+            </h1>
+            <p className="text-sm sm:text-base text-slate-300 mt-2 leading-relaxed">
+              AI-powered payment diagnosis, safe policy enforcement, and bounded recovery execution with measurable financial recovery.
+            </p>
+            <div className="flex flex-wrap items-center gap-3.5 mt-6">
+              <button
+                onClick={() => {
+                  setBatchResult(null);
+                  setBatchError(null);
+                  setBatchStep(0);
+                  setBatchModalOpen(true);
+                }}
+                className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 shadow-lg shadow-teal-500/20 transition-all cursor-pointer hover:scale-[1.02]"
+              >
+                <Play className="w-4 h-4 fill-slate-950" />
+                <span>Run Recovery Batch</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/payments?status=FAILED')}
+                className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+              >
+                <span>View At-Risk Payments</span>
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            AI Revenue Recovery Cockpit
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            PostgreSQL metrics across <span className="text-teal-400 font-semibold">{metrics.totalPayments}</span> payment transactions.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 bg-slate-950/60 px-4 py-2.5 rounded-xl border border-slate-800 shrink-0">
-          <div className="flex items-center gap-1.5 text-emerald-400">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{metrics.successfulPayments} Succeeded</span>
-          </div>
-          <span className="text-slate-600">|</span>
-          <div className="flex items-center gap-1.5 text-rose-400">
-            <AlertOctagon className="w-4 h-4" />
-            <span>{metrics.recoveryCases} at Risk</span>
-          </div>
-          <span className="text-slate-600">|</span>
-          <div className="flex items-center gap-1.5 text-teal-400">
-            <Sparkles className="w-4 h-4" />
-            <span>{metrics.successfulRecoveries} Recovered</span>
+
+          {/* Hero Highlight Card: Money Recovered */}
+          <div className="lg:w-80 p-5 rounded-2xl bg-slate-950/70 border border-emerald-500/30 shadow-xl flex flex-col justify-between">
+            <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold mb-2">
+              <span className="uppercase tracking-wider">Revenue Recovered</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800">
+                VERIFIED
+              </span>
+            </div>
+            <div className="text-3xl font-extrabold text-white tracking-tight">
+              {formatINR(metrics.revenueRecovered)}
+            </div>
+            <div className="mt-2 text-xs text-slate-400 flex items-center justify-between">
+              <span>Recovery Rate:</span>
+              <span className="font-bold text-teal-300 text-sm">{metrics.recoveryRate}%</span>
+            </div>
+            <div className="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between">
+              <span>Attempted: {formatINR(metrics.revenueAttempted)}</span>
+              <span>Successful: {metrics.successfulRecoveries}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Primary KPI Metric Cards (Day 2 Focus) */}
+      {/* 2. Primary Financial Metrics */}
       <div>
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
-          Recovery Impact & Financial Health
+          <DollarSign className="w-3.5 h-3.5 text-teal-400" />
+          Core Financial Recovery Metrics
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {/* Revenue At Risk */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-950/30 via-slate-900/70 to-slate-900/70 border border-rose-900/40 hover:border-rose-700/50 transition shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Revenue at Risk */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-950/30 via-slate-900/70 to-slate-900/70 border border-rose-900/40 shadow-sm">
             <div className="flex items-center justify-between text-rose-300 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Revenue at Risk</span>
-              <DollarSign className="w-4 h-4 text-rose-400" />
+              <AlertOctagon className="w-4 h-4 text-rose-400" />
             </div>
             <div className="text-2xl font-bold text-rose-200 tracking-tight">
               {formatINR(metrics.revenueAtRisk)}
             </div>
             <div className="text-[11px] text-rose-400/80 mt-1">
-              Failed + Abandoned + Sub Failed
+              {metrics.paymentsAtRisk} non-successful transactions
             </div>
           </div>
 
           {/* Revenue Recovered */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/30 via-slate-900/70 to-slate-900/70 border border-emerald-800/40 hover:border-emerald-700/50 transition shadow-sm">
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/30 via-slate-900/70 to-slate-900/70 border border-emerald-800/40 shadow-sm">
             <div className="flex items-center justify-between text-emerald-300 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Revenue Recovered</span>
               <Sparkles className="w-4 h-4 text-emerald-400" />
@@ -161,12 +226,12 @@ export const DashboardPage: React.FC = () => {
               {formatINR(metrics.revenueRecovered)}
             </div>
             <div className="text-[11px] text-emerald-400/80 mt-1">
-              Verified safe recovered funds
+              From {metrics.successfulRecoveries} recovered transactions
             </div>
           </div>
 
           {/* Recovery Rate */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition shadow-sm">
+          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider">Recovery Rate</span>
               <TrendingUp className="w-4 h-4 text-teal-400" />
@@ -175,273 +240,127 @@ export const DashboardPage: React.FC = () => {
               {metrics.recoveryRate}%
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
-              Recovered / Revenue at Risk
+              Recovered / Attempted revenue
+            </div>
+          </div>
+
+          {/* Payments at Risk */}
+          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm">
+            <div className="flex items-center justify-between text-slate-400 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Payments at Risk</span>
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-2xl font-bold text-white tracking-tight">
+              {metrics.paymentsAtRisk}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {metrics.failedPayments} failed · {metrics.abandonedPayments} abandoned · {metrics.subscriptionFailedPayments} sub
             </div>
           </div>
 
           {/* Successful Recoveries */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition shadow-sm">
+          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm">
             <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Successful Actions</span>
+              <span className="text-xs font-semibold uppercase tracking-wider">Successful Recoveries</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">
+            <div className="text-2xl font-bold text-emerald-300 tracking-tight">
               {metrics.successfulRecoveries}
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
               Out of {metrics.recoveryAttempts} recovery attempts
             </div>
           </div>
-
-          {/* Escalated Cases */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition shadow-sm">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Escalated to Human</span>
-              <AlertTriangle className="w-4 h-4 text-orange-400" />
-            </div>
-            <div className="text-2xl font-bold text-orange-300 tracking-tight">
-              {metrics.escalatedCases}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1">
-              High risk or unresolvable
-            </div>
-          </div>
-
-          {/* Blocked by Policy */}
-          <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition shadow-sm">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Blocked by Policy</span>
-              <ShieldCheck className="w-4 h-4 text-yellow-400" />
-            </div>
-            <div className="text-2xl font-bold text-yellow-300 tracking-tight">
-              {metrics.blockedActions}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-1">
-              Safety guardrails enforced
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Secondary Volume Row */}
+      {/* Secondary Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/60">
-          <span className="text-[11px] text-slate-400 font-medium">Total Volume</span>
-          <div className="text-lg font-semibold text-slate-100">{metrics.totalPayments}</div>
+          <span className="text-[11px] text-slate-400 font-medium">Recovery Attempts</span>
+          <div className="text-lg font-semibold text-slate-100">{metrics.recoveryAttempts}</div>
         </div>
         <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/60">
-          <span className="text-[11px] text-slate-400 font-medium">Base Success Rate</span>
-          <div className="text-lg font-semibold text-emerald-400">{metrics.successRate}%</div>
+          <span className="text-[11px] text-slate-400 font-medium">Failed Recoveries</span>
+          <div className="text-lg font-semibold text-rose-400">{metrics.failedRecoveries}</div>
         </div>
         <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/60">
-          <span className="text-[11px] text-slate-400 font-medium">Recovery Cases</span>
-          <div className="text-lg font-semibold text-amber-400">{metrics.recoveryCases}</div>
+          <span className="text-[11px] text-slate-400 font-medium">Blocked by Policy</span>
+          <div className="text-lg font-semibold text-yellow-400">{metrics.blockedActions}</div>
         </div>
         <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/60">
-          <span className="text-[11px] text-slate-400 font-medium">High Risk Cases</span>
-          <div className="text-lg font-semibold text-rose-400">{metrics.highRiskCases}</div>
+          <span className="text-[11px] text-slate-400 font-medium">Escalated Cases</span>
+          <div className="text-lg font-semibold text-orange-400">{metrics.escalatedCases}</div>
         </div>
       </div>
 
-      {/* Day 2 Visual Analytics: Recovery Performance & Breakdown */}
-      <div>
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <BarChart3 className="w-3.5 h-3.5 text-teal-400" />
-          Day 2: AI Recovery Dynamics & Policy Enforcement
+      {/* 3. Recovery Funnel Visualization */}
+      <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+          <div>
+            <h3 className="text-base font-semibold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-cyan-400" />
+              Recovery Funnel Conversion
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              End-to-end pipeline progression from detection to realized recovery
+            </p>
+          </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Chart 1: Recovery Performance (At Risk vs Recovered) */}
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                At Risk vs Recovered
-              </h3>
-              <span className="text-xs text-slate-400">Values in ₹</span>
-            </div>
 
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={metrics.recoveryPerformance || [
-                    { metric: 'Revenue at Risk', amount: metrics.revenueAtRiskNumeric, fill: '#f43f5e' },
-                    { metric: 'Revenue Recovered', amount: metrics.revenueRecoveredNumeric, fill: '#10b981' },
-                  ]}
-                  margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="metric" stroke="#64748b" fontSize={11} tickLine={false} />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={11}
-                    tickLine={false}
-                    tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    formatter={(value: any) => [formatINR(value), 'Amount']}
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                    {(metrics.recoveryPerformance || []).map((entry, idx) => (
-                      <Cell key={`perf-${idx}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mt-2 pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
-              <span>Recovery Rate:</span>
-              <span className="font-semibold text-teal-300">{metrics.recoveryRate}%</span>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Stage 1 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-rose-400 tracking-wider">1. At Risk</span>
+            <div className="text-lg font-bold text-white mt-1">{formatINR(metrics.revenueAtRisk)}</div>
+            <div className="text-[10px] text-slate-500">{metrics.paymentsAtRisk} payments</div>
           </div>
 
-          {/* Chart 2: Recovery Actions Breakdown */}
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Layers className="w-4 h-4 text-cyan-400" />
-                Actions Executed
-              </h3>
-              <span className="text-xs text-slate-400">By Action Type</span>
-            </div>
-
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={metrics.recoveryActionsBreakdown || []}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 35 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis
-                    dataKey="action"
-                    stroke="#64748b"
-                    fontSize={10}
-                    tickLine={false}
-                    angle={-20}
-                    textAnchor="end"
-                  />
-                  <YAxis stroke="#64748b" fontSize={11} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    formatter={(value: any) => [`${value} executions`, 'Count']}
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  />
-                  <Bar dataKey="count" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mt-2 pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
-              <span>Total Attempts:</span>
-              <span className="font-semibold text-slate-200">{metrics.recoveryAttempts}</span>
-            </div>
+          {/* Stage 2 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">2. Eligible Cases</span>
+            <div className="text-lg font-bold text-white mt-1">{metrics.recoveryCases}</div>
+            <div className="text-[10px] text-slate-500">Case queue</div>
           </div>
 
-          {/* Chart 3: Recovery Outcomes Breakdown (Donut) */}
-          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <PieChartIcon className="w-4 h-4 text-amber-400" />
-                Recovery Outcomes
-              </h3>
-              <span className="text-xs text-slate-400">Audit Status</span>
-            </div>
+          {/* Stage 3 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">3. AI Diagnosed</span>
+            <div className="text-lg font-bold text-white mt-1">{metrics.funnel?.aiAnalyzed || 0}</div>
+            <div className="text-[10px] text-slate-500">Telemetry analyzed</div>
+          </div>
 
-            <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={metrics.recoveryOutcomesBreakdown || []}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={75}
-                    paddingAngle={4}
-                    dataKey="count"
-                    nameKey="outcome"
-                  >
-                    {(metrics.recoveryOutcomesBreakdown || []).map((entry, index) => (
-                      <Cell key={`outcome-cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: any, name: any) => [`${value} cases`, name]}
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          {/* Stage 4 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-teal-400 tracking-wider">4. Policy Approved</span>
+            <div className="text-lg font-bold text-white mt-1">{metrics.funnel?.policyApproved || 0}</div>
+            <div className="text-[10px] text-slate-500">Safety verified</div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-1.5 mt-2 pt-3 border-t border-slate-800 text-[11px]">
-              {(metrics.recoveryOutcomesBreakdown || []).map((item) => (
-                <div key={item.outcome} className="flex items-center justify-between p-1 rounded bg-slate-950/40">
-                  <span className="flex items-center gap-1.5 text-slate-300">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    {item.outcome}
-                  </span>
-                  <span className="font-semibold text-slate-200">{item.count}</span>
-                </div>
-              ))}
-            </div>
+          {/* Stage 5 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
+            <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">5. Attempted</span>
+            <div className="text-lg font-bold text-white mt-1">{formatINR(metrics.revenueAttempted)}</div>
+            <div className="text-[10px] text-slate-500">{metrics.recoveryAttempts} actions</div>
+          </div>
+
+          {/* Stage 6 */}
+          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-emerald-500/40 bg-emerald-950/20">
+            <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">6. Recovered</span>
+            <div className="text-lg font-bold text-emerald-300 mt-1">{formatINR(metrics.revenueRecovered)}</div>
+            <div className="text-[10px] text-emerald-400/80">{metrics.successfulRecoveries} recovered</div>
           </div>
         </div>
       </div>
 
-      {/* Day 1 Visual Analytics: Status & Failure Reason Breakdown */}
+      {/* 4. Financial Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Payment Status Breakdown (Donut) */}
+        {/* Chart 1: Recovery Performance Comparison */}
         <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <PieChartIcon className="w-4 h-4 text-teal-400" />
-              Payment Status Distribution
-            </h3>
-            <span className="text-xs text-slate-400">Total: 500</span>
-          </div>
-
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={metrics.statusBreakdown}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="count"
-                >
-                  {metrics.statusBreakdown.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: any, name: any) => [`${value} payments`, name]}
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5 mt-2 pt-3 border-t border-slate-800 text-[11px]">
-            {metrics.statusBreakdown.map((item) => (
-              <div key={item.name} className="flex items-center justify-between p-1 rounded bg-slate-950/40">
-                <span className="flex items-center gap-1.5 text-slate-300">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                  {item.name}
-                </span>
-                <span className="font-semibold text-slate-200">{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Revenue at Risk by Failure Reason */}
-        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-rose-400" />
-              Revenue at Risk by Failure Reason
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              At Risk vs Attempted vs Recovered
             </h3>
             <span className="text-xs text-slate-400">Values in ₹</span>
           </div>
@@ -449,18 +368,11 @@ export const DashboardPage: React.FC = () => {
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={metrics.failureReasonBreakdown}
-                margin={{ top: 10, right: 10, left: 10, bottom: 25 }}
+                data={metrics.recoveryPerformance}
+                margin={{ top: 10, right: 10, left: 10, bottom: 20 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis
-                  dataKey="reason"
-                  stroke="#64748b"
-                  fontSize={11}
-                  tickLine={false}
-                  angle={-15}
-                  textAnchor="end"
-                />
+                <XAxis dataKey="metric" stroke="#64748b" fontSize={11} tickLine={false} />
                 <YAxis
                   stroke="#64748b"
                   fontSize={11}
@@ -468,29 +380,115 @@ export const DashboardPage: React.FC = () => {
                   tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  formatter={(value: any) => [formatINR(value), 'Revenue at Risk']}
-                  labelFormatter={(label) => `Reason: ${label}`}
+                  formatter={(value: any) => [formatINR(value), 'Amount']}
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
                 />
-                <Bar
-                  dataKey="revenueAtRiskNumeric"
-                  fill="#f43f5e"
-                  radius={[6, 6, 0, 0]}
-                />
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                  {metrics.recoveryPerformance.map((entry, idx) => (
+                    <Cell key={`perf-${idx}`} fill={entry.fill} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2 pt-3 border-t border-slate-800">
-            <span>Declines and Timeout errors drive the highest loss</span>
-            <Link to="/recovery-cases" className="text-teal-400 hover:text-teal-300 flex items-center gap-1 font-medium">
-              View Recovery Cases <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
+          <div className="mt-2 pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+            <span>Recovery Rate:</span>
+            <span className="font-semibold text-teal-300">{metrics.recoveryRate}%</span>
+          </div>
+        </div>
+
+        {/* Chart 2: Actions Breakdown */}
+        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Layers className="w-4 h-4 text-cyan-400" />
+              Actions Executed
+            </h3>
+            <span className="text-xs text-slate-400">By Strategy</span>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={metrics.recoveryActionsBreakdown || []}
+                margin={{ top: 10, right: 10, left: 0, bottom: 35 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis
+                  dataKey="action"
+                  stroke="#64748b"
+                  fontSize={10}
+                  tickLine={false}
+                  angle={-20}
+                  textAnchor="end"
+                />
+                <YAxis stroke="#64748b" fontSize={11} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  formatter={(value: any) => [`${value} executions`, 'Count']}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                />
+                <Bar dataKey="count" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-2 pt-3 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+            <span>Total Attempts:</span>
+            <span className="font-semibold text-slate-200">{metrics.recoveryAttempts}</span>
+          </div>
+        </div>
+
+        {/* Chart 3: Recovery Outcomes */}
+        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <PieChartIcon className="w-4 h-4 text-amber-400" />
+              Recovery Outcomes
+            </h3>
+            <span className="text-xs text-slate-400">Status</span>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={metrics.recoveryOutcomesBreakdown || []}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={75}
+                  paddingAngle={4}
+                  dataKey="count"
+                  nameKey="outcome"
+                >
+                  {(metrics.recoveryOutcomesBreakdown || []).map((entry, index) => (
+                    <Cell key={`outcome-cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: any, name: any) => [`${value} cases`, name]}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 mt-2 pt-3 border-t border-slate-800 text-[11px]">
+            {(metrics.recoveryOutcomesBreakdown || []).map((item) => (
+              <div key={item.outcome} className="flex items-center justify-between p-1 rounded bg-slate-950/40">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                  {item.outcome}
+                </span>
+                <span className="font-semibold text-slate-200">{item.count}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Recent Recovery Cases Table */}
+      {/* 5. Recent Recovery Cases Table */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -499,7 +497,7 @@ export const DashboardPage: React.FC = () => {
               Recent Recovery Cases
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Recovery cases awaiting AI recommendation, policy checks, or execution
+              Live case telemetry awaiting AI recommendation, policy checks, or execution
             </p>
           </div>
           <Link
@@ -582,7 +580,175 @@ export const DashboardPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* 6. Run Recovery Batch Interactive Modal */}
+      {batchModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                  <Play className="w-4 h-4 fill-teal-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Execute Recovery Batch</h3>
+                  <p className="text-xs text-slate-400">Run reproducible AI diagnosis and bounded recovery</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBatchModalOpen(false)}
+                disabled={batchRunning}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {batchError && <ErrorBanner message={batchError} />}
+
+            {/* If Batch not yet completed, show config and pipeline runner */}
+            {!batchResult ? (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block mb-2">
+                    Batch Size (Eligible Recovery Cases)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {[10, 25, 50, 100].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setBatchLimit(num)}
+                        disabled={batchRunning}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
+                          batchLimit === num
+                            ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-md shadow-teal-500/20'
+                            : 'bg-slate-950/60 text-slate-300 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {num} Cases
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200">Simulate Failure Scenario</span>
+                      <p className="text-[11px] text-slate-400">Test stopping rules and human escalation logic</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={simulateFailure}
+                      onChange={(e) => setSimulateFailure(e.target.checked)}
+                      disabled={batchRunning}
+                      className="w-4 h-4 rounded text-teal-500 bg-slate-900 border-slate-700 focus:ring-0 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Progress Steps during execution */}
+                {batchRunning && (
+                  <div className="p-4 rounded-2xl bg-teal-950/20 border border-teal-800/40 space-y-2.5 animate-pulse">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-teal-300">
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                      <span>
+                        {batchStep === 1 && 'Preparing recovery cases...'}
+                        {batchStep === 2 && 'Analyzing telemetry with AI...'}
+                        {batchStep === 3 && 'Applying safety and business policies...'}
+                        {batchStep === 4 && 'Executing bounded recovery actions...'}
+                        {batchStep === 5 && 'Compiling financial recovery totals...'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-teal-400 h-1.5 transition-all duration-300 rounded-full"
+                        style={{ width: `${(batchStep / 5) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setBatchModalOpen(false)}
+                    disabled={batchRunning}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRunBatch}
+                    disabled={batchRunning}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-teal-400 hover:bg-teal-300 text-slate-950 shadow-md shadow-teal-500/20 disabled:opacity-50 transition cursor-pointer flex items-center gap-2"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-slate-950" />
+                    <span>{batchRunning ? 'Running Experiment...' : `Run Batch (${batchLimit} Cases)`}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Batch Completion Summary Screen */
+              <div className="space-y-5 animate-fade-in">
+                <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-800/50 flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-300">Recovery Batch Complete</h4>
+                    <p className="text-xs text-emerald-400/80">
+                      Processed {batchResult.processed} cases through the RecoverAI pipeline
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Revenue Recovered</span>
+                    <div className="text-lg font-bold text-emerald-300">{formatINR(batchResult.revenueRecovered)}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Revenue Attempted</span>
+                    <div className="text-lg font-bold text-slate-200">{formatINR(batchResult.revenueAttempted)}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Successful Recoveries</span>
+                    <div className="text-lg font-bold text-white">{batchResult.successful}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Escalated to Human</span>
+                    <div className="text-lg font-bold text-orange-400">{batchResult.escalated}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Blocked by Policy</span>
+                    <div className="text-lg font-bold text-yellow-400">{batchResult.blocked}</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] text-slate-400">Failed Retries</span>
+                    <div className="text-lg font-bold text-rose-400">{batchResult.failed}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBatchModalOpen(false);
+                      setBatchResult(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   Play,
   Zap,
+  Layers,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   getRecoveryCase,
@@ -25,6 +27,7 @@ import {
   RecoveryStatusBadge,
   PaymentStatusBadge,
   RecoveryActionBadge,
+  RecoveryActionStatusBadge,
 } from '../components/common/Badge';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorBanner } from '../components/common/ErrorBanner';
@@ -88,14 +91,14 @@ export const RecoveryCaseDetailPage: React.FC = () => {
   }, [fetchCaseDetails]);
 
   // Handle "Analyze with AI" trigger
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (simulateAiFail = false) => {
     if (!recoveryCase) return;
     try {
       setIsAnalyzing(true);
       setAiError(null);
       setExecutionResult(null);
 
-      await analyzeCaseWithAI(recoveryCase.caseId);
+      await analyzeCaseWithAI(recoveryCase.caseId, { simulateAiFailure: simulateAiFail });
 
       // Re-fetch updated case with new analysis
       const updatedCase = await getRecoveryCase(recoveryCase.id);
@@ -115,86 +118,82 @@ export const RecoveryCaseDetailPage: React.FC = () => {
 
   // Handle "Execute Recovery Action" trigger
   const handleExecute = async () => {
-    if (!recoveryCase || !policyDecision || !policyDecision.allowed) return;
+    if (!recoveryCase || !policyDecision) return;
     try {
       setIsExecuting(true);
       setShowConfirmModal(false);
+      setExecutionResult(null);
 
-      const res = await executeRecoveryAction(recoveryCase.caseId, {
+      const res = await executeRecoveryAction(recoveryCase.id, {
         simulateFailure,
       });
 
       setExecutionResult(res.result);
 
-      // Refresh case to update status, payment status, and audit trail
-      const updatedCase = await getRecoveryCase(recoveryCase.id);
-      setRecoveryCase(updatedCase);
+      // Re-fetch case to load the new recoveryAction, updated case status, and audit logs
+      const refreshed = await getRecoveryCase(recoveryCase.id);
+      setRecoveryCase(refreshed);
 
-      // Notify dashboard to re-compute metrics
+      // Dispatch event to update dashboard metrics
       window.dispatchEvent(new CustomEvent('recoverai:dataset-seeded'));
     } catch (err: any) {
-      alert(`Execution failed: ${err.response?.data?.error?.message || err.message}`);
+      alert(`Recovery Execution Error: ${err.response?.data?.error?.message || err.message}`);
     } finally {
       setIsExecuting(false);
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner size="lg" label="Loading recovery case telemetry and audit timeline..." />;
+  if (loading && !recoveryCase) {
+    return <LoadingSpinner size="lg" label="Loading recovery case telemetry..." />;
   }
 
   if (error || !recoveryCase) {
-    return (
-      <div className="space-y-4">
-        <button
-          onClick={() => navigate('/recovery-cases')}
-          className="inline-flex items-center text-xs text-slate-400 hover:text-white"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to Recovery Cases
-        </button>
-        <ErrorBanner message={error || 'Recovery case not found'} onRetry={fetchCaseDetails} />
-      </div>
-    );
+    return <ErrorBanner message={error || 'Recovery case not found'} onRetry={fetchCaseDetails} />;
   }
 
-  const latestAnalysis = recoveryCase.aiAnalyses && recoveryCase.aiAnalyses.length > 0
-    ? recoveryCase.aiAnalyses[0]
-    : null;
+  const latestAnalysis = recoveryCase.aiAnalyses && recoveryCase.aiAnalyses.length > 0 ? recoveryCase.aiAnalyses[0] : null;
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
-      {/* Navigation & Header */}
+    <div className="space-y-6 animate-fade-in">
+      {/* Top Breadcrumbs & Case Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+        <div className="flex items-center space-x-3">
           <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center text-xs font-semibold text-slate-400 hover:text-teal-400 transition mb-2 cursor-pointer"
+            onClick={() => navigate('/recovery-cases')}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
-            <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
+            <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white font-mono tracking-tight">
-              {recoveryCase.caseId}
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="font-mono text-sm text-teal-400 font-semibold">{recoveryCase.caseId}</span>
+              <RecoveryStatusBadge status={recoveryCase.status} />
+              <RiskBadge level={recoveryCase.riskLevel} score={recoveryCase.riskScore} />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
+              Recovery Case Overview
             </h1>
-            <RecoveryStatusBadge status={recoveryCase.status} />
           </div>
         </div>
 
-        <div className="text-left sm:text-right">
-          <span className="text-xs text-slate-400 uppercase tracking-wider block font-semibold">
-            Estimated Recoverable Value
-          </span>
-          <div className="text-2xl sm:text-3xl font-bold text-emerald-400 font-sans">
-            {formatINR(recoveryCase.estimatedRecoverableAmount)}
+        {/* Estimated Recoverable Amount */}
+        <div className="p-3 px-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3 self-start sm:self-auto">
+          <div>
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
+              Recoverable Amount
+            </span>
+            <span className="text-xl font-bold text-slate-100">
+              {formatINR(recoveryCase.estimatedRecoverableAmount)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Grid: 2 Column Layout */}
+      {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 spans): Telemetry, AI Section, Policy Section, Execution */}
+        {/* Left 2 Columns: Telemetry, AI Diagnosis, Policy & Execution History */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Recovery Case Overview Card */}
+          {/* Recovery Case Telemetry Card */}
           <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm">
             <h2 className="text-base font-semibold text-white flex items-center gap-2 mb-4 pb-3 border-b border-slate-800/80">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
@@ -247,7 +246,7 @@ export const RecoveryCaseDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* AI RECOVERY ANALYSIS SECTION (Day 2 Core) */}
+          {/* AI RECOVERY ANALYSIS SECTION */}
           <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900/90 via-indigo-950/30 to-slate-900/90 border border-indigo-500/30 shadow-xl relative overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-indigo-500/20">
               <div className="flex items-center space-x-3">
@@ -264,24 +263,35 @@ export const RecoveryCaseDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Button: Analyze with AI */}
-              <button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer self-start sm:self-auto"
-              >
-                <Zap className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
-                <span>
-                  {isAnalyzing
-                    ? 'Analyzing...'
-                    : latestAnalysis
-                    ? 'Re-Analyze with AI'
-                    : 'Analyze with AI'}
-                </span>
-              </button>
+              {/* Action Buttons: Run AI Analysis & Test Failure */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => handleAnalyze(false)}
+                  disabled={isAnalyzing}
+                  className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
+                >
+                  <Zap className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                  <span>
+                    {isAnalyzing
+                      ? 'Analyzing...'
+                      : latestAnalysis
+                      ? 'Re-Analyze'
+                      : 'Analyze with AI'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => handleAnalyze(true)}
+                  disabled={isAnalyzing}
+                  title="Simulate an AI service outage to verify graceful circuit breaker & human escalation"
+                  className="inline-flex items-center space-x-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50 transition cursor-pointer"
+                >
+                  <span>Test AI Failure</span>
+                </button>
+              </div>
             </div>
 
-            {aiError && <ErrorBanner message={aiError} onRetry={handleAnalyze} />}
+            {aiError && <ErrorBanner message={aiError} onRetry={() => handleAnalyze(false)} />}
 
             {latestAnalysis ? (
               <div className="space-y-5 animate-fade-in">
@@ -298,84 +308,80 @@ export const RecoveryCaseDetailPage: React.FC = () => {
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Recommended Action */}
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                    <span className="text-xs font-medium text-slate-400 block mb-1.5">
+                  <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mb-1.5">
                       Recommended Action
                     </span>
                     <RecoveryActionBadge action={latestAnalysis.recommendedAction} />
                   </div>
 
-                  {/* Confidence */}
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                    <div className="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
-                      <span>Model Confidence</span>
-                      <span className="text-slate-200 font-bold">
-                        {(latestAnalysis.confidence * 100).toFixed(0)}%
+                  {/* Confidence Score */}
+                  <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mb-1">
+                      AI Confidence
+                    </span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-xl font-bold text-white">
+                        {Math.round(latestAnalysis.confidence * 100)}%
                       </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2">
-                      <div
-                        className="h-full bg-teal-400 rounded-full"
-                        style={{ width: `${latestAnalysis.confidence * 100}%` }}
-                      />
+                      <span className="text-xs text-slate-400">certainty</span>
                     </div>
                   </div>
 
                   {/* Expected Recovery Probability */}
-                  <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
-                    <div className="flex items-center justify-between text-xs font-medium text-slate-400 mb-1">
-                      <span>Expected Recovery %</span>
-                      <span className="text-emerald-300 font-bold">
-                        {(latestAnalysis.expectedRecoveryProbability * 100).toFixed(0)}%
+                  <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider block mb-1">
+                      Est. Recovery Prob
+                    </span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-xl font-bold text-teal-300">
+                        {Math.round(latestAnalysis.expectedRecoveryProbability * 100)}%
                       </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-2">
-                      <div
-                        className="h-full bg-emerald-400 rounded-full"
-                        style={{ width: `${latestAnalysis.expectedRecoveryProbability * 100}%` }}
-                      />
+                      <span className="text-xs text-slate-400">chance</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Strategic Rationale */}
-                <div className="p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60 text-xs text-slate-300">
-                  <span className="font-semibold text-slate-200 block mb-0.5">AI Strategic Justification:</span>
-                  <p className="text-slate-400 leading-normal">{latestAnalysis.reason}</p>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>Provider: {latestAnalysis.provider} · Model: {latestAnalysis.model}</span>
-                  <span>Analyzed {new Date(latestAnalysis.createdAt).toLocaleTimeString('en-IN')}</span>
+                {/* AI Rationale */}
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300">
+                  <span className="font-semibold text-slate-200 block mb-1">Recommendation Rationale:</span>
+                  <p>{latestAnalysis.reason}</p>
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-900 pt-2">
+                    <span>Engine: {latestAnalysis.provider} ({latestAnalysis.model})</span>
+                    <span>{new Date(latestAnalysis.createdAt).toLocaleTimeString()}</span>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="py-8 text-center bg-slate-950/40 rounded-xl border border-dashed border-slate-800">
-                <Sparkles className="w-8 h-8 text-indigo-400/60 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-300 mb-1">No AI Analysis Run Yet</p>
-                <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-                  Click 'Analyze with AI' above to trigger autonomous telemetry diagnosis, root cause detection, and recovery strategy recommendation.
+              <div className="p-8 text-center bg-slate-950/40 rounded-xl border border-dashed border-indigo-900/50">
+                <Sparkles className="w-8 h-8 text-indigo-400 mx-auto mb-2 opacity-50" />
+                <h4 className="text-sm font-semibold text-slate-200">No AI Diagnosis Recorded</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  Click 'Analyze with AI' to trigger Google Gemini telemetry interpretation.
                 </p>
               </div>
             )}
           </div>
 
-          {/* POLICY & SAFETY ENGINE DECISION SECTION */}
+          {/* POLICY ENGINE & BOUNDED EXECUTION SECTION */}
           {latestAnalysis && (
-            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm animate-fade-in">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
-                <div className="flex items-center space-x-2.5">
-                  <ShieldAlert className="w-4 h-4 text-teal-400" />
-                  <h3 className="text-base font-semibold text-white">
-                    Policy & Safety Engine Validation
+            <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div>
+                  <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-teal-400" />
+                    Policy Engine & Safety Guardrails
                   </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Deterministic verification of business safety rules before execution
+                  </p>
                 </div>
                 {policyDecision && (
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                       policyDecision.allowed
-                        ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/60'
-                        : 'bg-rose-950/90 text-rose-300 border border-rose-700/60'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-700/60'
+                        : 'bg-rose-950 text-rose-300 border border-rose-700/60'
                     }`}
                   >
                     {policyDecision.allowed ? '✓ ACTION APPROVED' : '⚠ ACTION BLOCKED'}
@@ -480,18 +486,70 @@ export const RecoveryCaseDetailPage: React.FC = () => {
                   )}
                   {executionResult.stoppingRuleTriggered && (
                     <div className="mt-1.5 text-xs text-amber-300 font-medium">
-                      Stopping rule enforced: Retries exhausted. Case escalated for human review.
+                      Stopping rule enforced: Automatic recovery stopped; case safely escalated for human review.
                     </div>
                   )}
                 </div>
               </div>
             </div>
           )}
+
+          {/* RECOVERY ACTION HISTORY (Prompt Section 22) */}
+          <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  Recovery Action History
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Chronological execution attempts and outcomes for this case
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">
+                {recoveryCase.recoveryActions?.length || 0} Attempt(s)
+              </span>
+            </div>
+
+            {recoveryCase.recoveryActions && recoveryCase.recoveryActions.length > 0 ? (
+              <div className="space-y-3">
+                {recoveryCase.recoveryActions.map((action) => (
+                  <div
+                    key={action.id}
+                    className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-slate-200">Attempt #{action.attemptNumber}</span>
+                        <RecoveryActionBadge action={action.actionType} />
+                        <RecoveryActionStatusBadge status={action.status} />
+                      </div>
+                      <p className="text-slate-400">{action.reason || 'Executed action'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-semibold text-slate-200 block">
+                        {action.amount ? formatINR(action.amount) : '₹0'}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        {new Date(action.createdAt).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No recovery attempts executed for this case yet.</p>
+            )}
+          </div>
         </div>
 
-        {/* Right Column (1 span): Payment Info, Customer Contact, Recovery History */}
+        {/* Right Column: Payment & Customer Context */}
         <div className="space-y-6">
-          {/* Associated Payment Card */}
+          {/* Payment Context Card */}
           {recoveryCase.payment && (
             <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">

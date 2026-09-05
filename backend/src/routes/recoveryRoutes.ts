@@ -4,9 +4,13 @@ import {
   getRecoveryCaseById,
   evaluateCasePolicy,
   executeCaseAction,
+  runBatchRecoveryHandler,
 } from '../controllers/recoveryController.js';
 
 const router = Router();
+
+// POST /api/recovery/run-batch - Run batch recovery experiment
+router.post('/run-batch', runBatchRecoveryHandler);
 
 // GET /api/recovery/cases - Paginated recovery cases
 router.get('/cases', getRecoveryCases);

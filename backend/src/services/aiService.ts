@@ -15,6 +15,7 @@ export interface AIAnalysisInput {
   riskScore: number;
   riskLevel: string;
   contactOptOut?: boolean;
+  simulateAiFailure?: boolean;
 }
 
 export interface AIAnalysisResult {
@@ -26,6 +27,7 @@ export interface AIAnalysisResult {
   provider: string;
   model: string;
   isFallback?: boolean;
+  isAiServiceError?: boolean;
 }
 
 const ALLOWED_ACTIONS: RecoveryActionType[] = [
@@ -136,6 +138,21 @@ export function getFallbackAnalysis(input: AIAnalysisInput, reasonNotice?: strin
  * with robust validation and fallback.
  */
 export async function analyzePaymentRecovery(input: AIAnalysisInput): Promise<AIAnalysisResult> {
+  // Check for intentional AI failure test scenario
+  if (input.simulateAiFailure || process.env.AI_FAILURE_MODE === 'true') {
+    return {
+      diagnosis: 'AI analysis unavailable. Automatic recovery was not attempted. Case escalated safely.',
+      recommendedAction: RecoveryActionType.HUMAN_ESCALATION,
+      reason: 'AI service simulated outage; automatic recovery was prevented by safety guardrails.',
+      confidence: 0,
+      expectedRecoveryProbability: 0,
+      provider: 'ai-circuit-breaker',
+      model: 'safe-fail-v1',
+      isFallback: true,
+      isAiServiceError: true,
+    };
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   const provider = process.env.AI_PROVIDER || 'gemini';
 

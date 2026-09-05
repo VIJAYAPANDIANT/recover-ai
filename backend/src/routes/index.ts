@@ -4,6 +4,8 @@ import dashboardRoutes from './dashboardRoutes.js';
 import recoveryRoutes from './recoveryRoutes.js';
 import auditLogRoutes from './auditLogRoutes.js';
 import aiRoutes from './aiRoutes.js';
+import systemRoutes from './systemRoutes.js';
+import demoRoutes from './demoRoutes.js';
 
 const router = Router();
 
@@ -22,5 +24,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/recovery', recoveryRoutes);
 router.use('/audit-logs', auditLogRoutes);
 router.use('/ai', aiRoutes);
+router.use('/system', systemRoutes);
+router.use('/demo', demoRoutes);
 
 export default router;

@@ -7,6 +7,11 @@ import {
   PaginatedResponse,
   AIAnalysis,
   PolicyDecision,
+  BatchRecoveryResult,
+  StrategyPerformanceItem,
+  FailureReasonAnalysisItem,
+  RiskAnalysisItem,
+  SystemStatus,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -64,6 +69,11 @@ export async function seedDemoData(): Promise<{ message: string; payments: numbe
   return response.data;
 }
 
+export async function resetDemoData(): Promise<{ message: string; payments: number }> {
+  const response = await apiClient.post<{ success: boolean; message: string; payments: number }>('/demo/reset');
+  return response.data;
+}
+
 export interface AuditLogQueryParams {
   eventType?: string;
   search?: string;
@@ -83,11 +93,10 @@ export async function getHealthCheck(): Promise<{ status: string; service: strin
 
 // --- Day 2 API Functions ---
 
-/**
- * POST /api/ai/analyze/:caseId
- * Triggers AI diagnosis and recovery recommendation.
- */
-export async function analyzeCaseWithAI(caseId: string): Promise<{
+export async function analyzeCaseWithAI(
+  caseId: string,
+  options: { simulateAiFailure?: boolean } = {}
+): Promise<{
   success: boolean;
   caseId: string;
   analysis: AIAnalysis;
@@ -96,14 +105,10 @@ export async function analyzeCaseWithAI(caseId: string): Promise<{
     success: boolean;
     caseId: string;
     analysis: AIAnalysis;
-  }>(`/ai/analyze/${caseId}`);
+  }>(`/ai/analyze/${caseId}`, options);
   return response.data;
 }
 
-/**
- * POST /api/recovery/cases/:caseId/evaluate
- * Evaluates recovery case against PolicyEngine.
- */
 export async function evaluateCasePolicy(caseId: string): Promise<{
   success: boolean;
   caseId: string;
@@ -117,10 +122,6 @@ export async function evaluateCasePolicy(caseId: string): Promise<{
   return response.data;
 }
 
-/**
- * POST /api/recovery/cases/:caseId/execute
- * Executes policy-approved recovery action.
- */
 export async function executeRecoveryAction(
   caseId: string,
   options: { simulateFailure?: boolean } = {}
@@ -157,4 +158,42 @@ export async function executeRecoveryAction(
     };
   }>(`/recovery/cases/${caseId}/execute`, options);
   return response.data;
+}
+
+// --- Day 3 API Functions ---
+
+export async function runRecoveryBatch(
+  limit: number = 50,
+  options: { simulateFailure?: boolean; includeEscalated?: boolean } = {}
+): Promise<BatchRecoveryResult> {
+  const response = await apiClient.post<BatchRecoveryResult>('/recovery/run-batch', {
+    limit,
+    ...options,
+  });
+  return response.data;
+}
+
+export async function getRecoveryPerformance(): Promise<any> {
+  const response = await apiClient.get<{ success: boolean; data: any }>('/dashboard/recovery-performance');
+  return response.data.data;
+}
+
+export async function getStrategyPerformance(): Promise<StrategyPerformanceItem[]> {
+  const response = await apiClient.get<{ success: boolean; data: StrategyPerformanceItem[] }>('/dashboard/strategy-performance');
+  return response.data.data;
+}
+
+export async function getFailureReasonAnalysis(): Promise<FailureReasonAnalysisItem[]> {
+  const response = await apiClient.get<{ success: boolean; data: FailureReasonAnalysisItem[] }>('/dashboard/failure-analysis');
+  return response.data.data;
+}
+
+export async function getRiskAnalysis(): Promise<RiskAnalysisItem[]> {
+  const response = await apiClient.get<{ success: boolean; data: RiskAnalysisItem[] }>('/dashboard/risk-analysis');
+  return response.data.data;
+}
+
+export async function getSystemStatus(): Promise<SystemStatus> {
+  const response = await apiClient.get<{ success: boolean; data: SystemStatus }>('/system/status');
+  return response.data.data;
 }
