@@ -52,6 +52,7 @@ Digital commerce loses between **3% and 9% of total gross merchandise value (GMV
 - [Core Value Proposition](#core-value-proposition)
 - [System Architecture](#system-architecture)
 - [Deterministic Policy Engine (5 Safety Rules)](#deterministic-policy-engine-5-safety-rules)
+- [Demo Video & Presentation Walkthrough](#demo-video--presentation-walkthrough)
 - [Featured Hackathon Demo Scenarios](#featured-hackathon-demo-scenarios)
 - [Key Capabilities](#key-capabilities)
 - [Mathematical Precision & Financial Metrics](#mathematical-precision--financial-metrics)
@@ -140,6 +141,16 @@ The Policy Engine serves as the non-negotiable gatekeeper between AI recommendat
 | **RULE 3** | **Customer Privacy Opt-Out** | `customerOptedOut == true` | `SEND_RECOVERY_MESSAGE` | **Blocked**: Prevents messaging; falls back to `OFFER_ALTERNATE_PAYMENT` or portal notice. |
 | **RULE 4** | **Double-Charge Protection** | `payment.status == 'SUCCESS'` | Any recovery action | **Blocked**: Enforces `NO_ACTION` to guarantee zero double-charging. |
 | **RULE 5** | **Unknown Failure Investigation** | `failureReason == 'UNKNOWN'` | `RETRY_PAYMENT` | **Blocked**: Diverts to `HUMAN_ESCALATION` to prevent blind retries on unknown errors. |
+
+---
+
+## Demo Video & Presentation Walkthrough
+
+[![Watch 5-Min Demo Video](https://img.shields.io/badge/Watch-5--Min%20Demo%20Video-blue?style=for-the-badge&logo=google-drive&logoColor=white)](https://drive.google.com/file/d/1DzaO9_hG-BcXaiBdanthtBBoEKnrEtpD/view?usp=sharing)
+
+- **Official Demo Video URL**: [https://drive.google.com/file/d/1DzaO9_hG-BcXaiBdanthtBBoEKnrEtpD/view?usp=sharing](https://drive.google.com/file/d/1DzaO9_hG-BcXaiBdanthtBBoEKnrEtpD/view?usp=sharing)
+- **Demo Video Duration**: ~4.5 minutes
+- **Demo Video Focus**: Real-world payment recovery pipeline, live Google Gemini failure diagnosis, 5 deterministic policy guardrails, bounded WhatsApp / UPI recovery actions, and exact Decimal.js financial truth.
 
 ---
 
