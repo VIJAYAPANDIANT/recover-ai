@@ -298,6 +298,8 @@ export async function executeCaseAction(req: Request, res: Response, next: NextF
     if (!executionResult.success && executionResult.message.includes('already')) {
       res.status(409).json({
         success: false,
+        code: 'ALREADY_PROCESSED',
+        status: 'ALREADY_PROCESSED',
         message: executionResult.message,
         result: executionResult,
       });
