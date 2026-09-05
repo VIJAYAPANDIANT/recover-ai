@@ -153,41 +153,107 @@ export const RecoveryCaseDetailPage: React.FC = () => {
 
   const latestAnalysis = recoveryCase.aiAnalyses && recoveryCase.aiAnalyses.length > 0 ? recoveryCase.aiAnalyses[0] : null;
 
+  const DEMO_CASE_NOTES: Record<string, { title: string; objective: string; expected: string; tag: string }> = {
+    'CASE-1001': {
+      title: 'Featured Demo Scenario 1: Successful Recovery',
+      objective: 'Demonstrates end-to-end recovery of a transient payment failure within policy bounds.',
+      expected: 'AI suggests recovery link. Policy Engine Approves. Executor dispatches simulated link. Case status updates to RECOVERED and revenue recovered counter increases.',
+      tag: 'SUCCESS FLOW',
+    },
+    'CASE-1002': {
+      title: 'Featured Demo Scenario 2: Retry Limit Enforcement (Rule 1)',
+      objective: 'Demonstrates safety guardrail preventing repetitive card charge declines when retries >= 3.',
+      expected: 'Customer has exhausted automated retries (3/3). Policy Engine intercepts and BLOCKS automated retry, safely diverting to HUMAN_ESCALATION.',
+      tag: 'RULE 1 GUARD',
+    },
+    'CASE-1003': {
+      title: 'Featured Demo Scenario 3: High-Value Payment Safeguard (Rule 2)',
+      objective: 'Demonstrates financial safety guardrail for transactions exceeding ₹50,000.',
+      expected: 'Payment amount (₹75,000) exceeds safety threshold. Policy Engine BLOCKS automated retries to protect merchant balance and routes to senior ops review.',
+      tag: 'RULE 2 GUARD',
+    },
+    'CASE-1004': {
+      title: 'Featured Demo Scenario 4: Recovery Failure & Stopping Rules',
+      objective: 'Demonstrates graceful failure handling and automated escalation when execution fails.',
+      expected: 'Toggle "Simulate Failure" below and execute. Execution records FAILED, increments retry count, logs AUTOMATIC_RECOVERY_STOPPED, and escalates case.',
+      tag: 'STOPPING RULES',
+    },
+    'CASE-1005': {
+      title: 'Featured Demo Scenario 5: AI Provider Outage & Circuit Breaker',
+      objective: 'Demonstrates system resilience when external AI services fail or experience network timeouts.',
+      expected: 'Click "Simulate AI Outage" below. Circuit breaker intercepts, logs AI_SERVICE_ERROR audit event, and safely routes to HUMAN_ESCALATION without crashing.',
+      tag: 'CIRCUIT BREAKER',
+    },
+  };
+
+  const demoNote = DEMO_CASE_NOTES[recoveryCase.caseId];
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Top Breadcrumbs & Case Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
+      {/* Header & Back Link */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+        <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/recovery-cases')}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+            aria-label="Back to cases list"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-mono text-sm text-teal-400 font-semibold">{recoveryCase.caseId}</span>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-white tracking-tight">
+                Case {recoveryCase.caseId}
+              </h1>
               <RecoveryStatusBadge status={recoveryCase.status} />
-              <RiskBadge level={recoveryCase.riskLevel} score={recoveryCase.riskScore} />
+              {demoNote && (
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  {demoNote.tag}
+                </span>
+              )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
-              Recovery Case Overview
-            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Created {new Date(recoveryCase.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })} · Associated with {recoveryCase.payment?.paymentId || 'Payment'}
+            </p>
           </div>
         </div>
 
-        {/* Estimated Recoverable Amount */}
-        <div className="p-3 px-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3 self-start sm:self-auto">
-          <div>
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider block">
-              Recoverable Amount
-            </span>
-            <span className="text-xl font-bold text-slate-100">
-              {formatINR(recoveryCase.estimatedRecoverableAmount)}
-            </span>
-          </div>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/recovery-cases"
+            className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition"
+          >
+            All Recovery Cases
+          </Link>
         </div>
       </div>
+
+      {/* Featured Hackathon Demo Banner (if applicable) */}
+      {demoNote && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-indigo-950/20 border border-indigo-500/40 shadow-md">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 shrink-0 mt-0.5">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">{demoNote.title}</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono bg-indigo-900/60 text-indigo-200 border border-indigo-700">
+                  {demoNote.tag}
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200/90">{demoNote.objective}</p>
+              <div className="text-[11px] text-slate-400 pt-1">
+                <strong className="text-slate-300">Expected Demo Flow:</strong> {demoNote.expected}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

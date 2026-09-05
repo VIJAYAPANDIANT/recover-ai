@@ -8,18 +8,16 @@ import Decimal from 'decimal.js';
 import prisma from '../utils/prisma.js';
 import { calculateRiskScore } from './riskScoreService.js';
 
-// Pre-defined realistic Indian price points
+// Pre-defined realistic Indian price points (matching hackathon specification)
 const REALISTIC_AMOUNTS = [
-  '199.00',
   '499.00',
-  '799.00',
   '999.00',
   '1499.00',
-  '2499.00',
-  '4999.00',
-  '9999.00',
-  '19999.00',
-  '49999.00',
+  '2999.00',
+  '5999.00',
+  '12500.00',
+  '25000.00',
+  '75000.00',
 ];
 
 // 50 Realistic Customer Profiles
@@ -122,64 +120,119 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
 
     // 3. Prepare exact 500 payment specifications:
     // - 350 SUCCESS
-    // - 80 FAILED
+    // - 80 FAILED (4 demo + 76 other)
     // - 40 ABANDONED
-    // - 30 SUBSCRIPTION_FAILED
+    // - 30 SUBSCRIPTION_FAILED (1 demo + 29 other)
     interface PaymentSpec {
       status: PaymentStatus;
       failureReason: FailureReason;
       retryCount: number;
+      fixedAmount?: string;
+      fixedMethod?: PaymentMethod;
+      demoScenario?: string;
     }
 
-    const paymentSpecs: PaymentSpec[] = [];
+    // Five Featured Demo Cases (CASE-1001 to CASE-1005)
+    const demoCases: PaymentSpec[] = [
+      // Case 1 — Successful Recovery (Amount ₹2,999, FAILED, Insufficient Funds, 0 retries)
+      {
+        status: PaymentStatus.FAILED,
+        failureReason: FailureReason.INSUFFICIENT_FUNDS,
+        retryCount: 0,
+        fixedAmount: '2999.00',
+        fixedMethod: PaymentMethod.UPI,
+        demoScenario: 'CASE_1_SUCCESSFUL_RECOVERY',
+      },
+      // Case 2 — Retry Blocked (Amount ₹1,499, FAILED, Card Declined, 3 retries -> blocked by Rule 1)
+      {
+        status: PaymentStatus.FAILED,
+        failureReason: FailureReason.CARD_DECLINED,
+        retryCount: 3,
+        fixedAmount: '1499.00',
+        fixedMethod: PaymentMethod.CARD,
+        demoScenario: 'CASE_2_RETRY_BLOCKED',
+      },
+      // Case 3 — High Value (Amount ₹75,000 > ₹50,000 -> policy requires Human Escalation)
+      {
+        status: PaymentStatus.FAILED,
+        failureReason: FailureReason.BANK_ERROR,
+        retryCount: 0,
+        fixedAmount: '75000.00',
+        fixedMethod: PaymentMethod.NET_BANKING,
+        demoScenario: 'CASE_3_HIGH_VALUE',
+      },
+      // Case 4 — Recovery Failure (Amount ₹5,999, FAILED, Timeout -> ready for simulateFailure demo)
+      {
+        status: PaymentStatus.FAILED,
+        failureReason: FailureReason.TIMEOUT,
+        retryCount: 1,
+        fixedAmount: '5999.00',
+        fixedMethod: PaymentMethod.CARD,
+        demoScenario: 'CASE_4_RECOVERY_FAILURE',
+      },
+      // Case 5 — AI Failure / Circuit Breaker (Amount ₹12,500, SUBSCRIPTION_FAILED, Mandate Failure)
+      {
+        status: PaymentStatus.SUBSCRIPTION_FAILED,
+        failureReason: FailureReason.MANDATE_FAILURE,
+        retryCount: 1,
+        fixedAmount: '12500.00',
+        fixedMethod: PaymentMethod.UPI,
+        demoScenario: 'CASE_5_AI_FAILURE',
+      },
+    ];
+
+    const otherPaymentSpecs: PaymentSpec[] = [];
 
     // 350 SUCCESS
     for (let i = 0; i < 350; i++) {
-      paymentSpecs.push({
+      otherPaymentSpecs.push({
         status: PaymentStatus.SUCCESS,
         failureReason: FailureReason.NONE,
-        retryCount: i % 10 === 0 ? 1 : 0, // mostly 0, occasional 1 before success
+        retryCount: i % 10 === 0 ? 1 : 0,
       });
     }
 
-    // 80 FAILED
-    for (let i = 0; i < 80; i++) {
-      paymentSpecs.push({
+    // 76 Remaining FAILED (to make 80 total FAILED)
+    for (let i = 0; i < 76; i++) {
+      otherPaymentSpecs.push({
         status: PaymentStatus.FAILED,
         failureReason: NON_SUCCESS_REASONS[i % NON_SUCCESS_REASONS.length],
-        retryCount: (i % 4), // 0 to 3
+        retryCount: (i % 4),
       });
     }
 
     // 40 ABANDONED
     for (let i = 0; i < 40; i++) {
-      paymentSpecs.push({
+      otherPaymentSpecs.push({
         status: PaymentStatus.ABANDONED,
         failureReason: i % 2 === 0 ? FailureReason.TIMEOUT : FailureReason.UNKNOWN,
-        retryCount: (i % 3), // 0 to 2
+        retryCount: (i % 3),
       });
     }
 
-    // 30 SUBSCRIPTION_FAILED
-    for (let i = 0; i < 30; i++) {
-      paymentSpecs.push({
+    // 29 Remaining SUBSCRIPTION_FAILED (to make 30 total SUBSCRIPTION_FAILED)
+    for (let i = 0; i < 29; i++) {
+      otherPaymentSpecs.push({
         status: PaymentStatus.SUBSCRIPTION_FAILED,
         failureReason: i % 3 === 0 ? FailureReason.MANDATE_FAILURE : (i % 2 === 0 ? FailureReason.INSUFFICIENT_FUNDS : FailureReason.CARD_DECLINED),
-        retryCount: (i % 4), // 0 to 3
+        retryCount: (i % 4),
       });
     }
 
-    // Deterministic pseudo-random shuffle (using a stable seed) to distribute statuses across customers
+    // Deterministic pseudo-random shuffle for the 495 background payments
     let seed = 42;
     function pseudoRandom() {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     }
 
-    for (let i = paymentSpecs.length - 1; i > 0; i--) {
+    for (let i = otherPaymentSpecs.length - 1; i > 0; i--) {
       const j = Math.floor(pseudoRandom() * (i + 1));
-      [paymentSpecs[i], paymentSpecs[j]] = [paymentSpecs[j], paymentSpecs[i]];
+      [otherPaymentSpecs[i], otherPaymentSpecs[j]] = [otherPaymentSpecs[j], otherPaymentSpecs[i]];
     }
+
+    // Prepend the 5 featured demo cases so they get PAY-1001..1005 and CASE-1001..1005
+    const paymentSpecs = [...demoCases, ...otherPaymentSpecs];
 
     // Spread payments across the last 30 days
     const now = new Date();
@@ -189,9 +242,9 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
     for (let i = 0; i < paymentSpecs.length; i++) {
       const spec = paymentSpecs[i];
       const customer = createdCustomers[i % createdCustomers.length];
-      const amountStr = REALISTIC_AMOUNTS[Math.floor(pseudoRandom() * REALISTIC_AMOUNTS.length)];
+      const amountStr = spec.fixedAmount || REALISTIC_AMOUNTS[Math.floor(pseudoRandom() * REALISTIC_AMOUNTS.length)];
       const amountDecimal = new Decimal(amountStr);
-      const paymentMethod = PAYMENT_METHODS[i % PAYMENT_METHODS.length];
+      const paymentMethod = spec.fixedMethod || PAYMENT_METHODS[i % PAYMENT_METHODS.length];
       const paymentId = `PAY-${(1001 + i).toString()}`;
 
       // Date spaced over past 30 days
@@ -239,6 +292,7 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
             eventType: 'CASE_CREATED',
             message: `Recovery case created for failed payment ${paymentId}`,
             metadata: {
+              demoScenario: spec.demoScenario || null,
               riskScore: risk.score,
               riskLevel: risk.level,
               amount: amountDecimal.toNumber(),

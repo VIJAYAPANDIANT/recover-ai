@@ -77,8 +77,85 @@ export const RecoveryCasesPage: React.FC = () => {
     setPage(1);
   };
 
+  const demoScenarios = [
+    {
+      caseId: 'CASE-1001',
+      title: '1. Successful Recovery',
+      desc: '₹2,999 · UPI · 0 retries → WhatsApp Link → 100% Recovered',
+      badge: 'SUCCESS FLOW',
+      badgeColor: 'text-emerald-400 bg-emerald-950/80 border-emerald-800',
+    },
+    {
+      caseId: 'CASE-1002',
+      title: '2. Retry Blocked',
+      desc: '₹1,499 · Card · 3 retries → Blocked by Rule 1 → Escalation',
+      badge: 'RULE 1 GUARD',
+      badgeColor: 'text-amber-400 bg-amber-950/80 border-amber-800',
+    },
+    {
+      caseId: 'CASE-1003',
+      title: '3. High Value',
+      desc: '₹75,000 > ₹50k cap → Blocked by Rule 2 → Human Escalation',
+      badge: 'RULE 2 GUARD',
+      badgeColor: 'text-rose-400 bg-rose-950/80 border-rose-800',
+    },
+    {
+      caseId: 'CASE-1004',
+      title: '4. Recovery Failure',
+      desc: '₹5,999 · Timeout → Simulate Failure → Stopping Rules Enforced',
+      badge: 'STOPPING RULE',
+      badgeColor: 'text-purple-400 bg-purple-950/80 border-purple-800',
+    },
+    {
+      caseId: 'CASE-1005',
+      title: '5. AI Outage',
+      desc: '₹12,500 · Mandate → Circuit Breaker → Safe Escalation',
+      badge: 'CIRCUIT BREAKER',
+      badgeColor: 'text-cyan-400 bg-cyan-950/80 border-cyan-800',
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Featured Hackathon Demo Scenarios */}
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950/20 to-slate-900 border border-indigo-500/30 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div className="flex items-center space-x-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+              FEATURED DEMO CASES
+            </span>
+            <span className="text-xs text-slate-400 font-medium">Quick-launch the 5 key buildathon presentation scenarios:</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {demoScenarios.map((sc) => (
+            <div
+              key={sc.caseId}
+              onClick={() => navigate(`/recovery-cases/${sc.caseId}`)}
+              className="p-3 rounded-xl bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-indigo-500/60 transition cursor-pointer group flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-mono text-xs font-bold text-slate-200 group-hover:text-indigo-300 transition">
+                    {sc.caseId}
+                  </span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${sc.badgeColor}`}>
+                    {sc.badge}
+                  </span>
+                </div>
+                <h4 className="text-xs font-semibold text-slate-100 mb-1">{sc.title}</h4>
+                <p className="text-[11px] text-slate-400 leading-snug">{sc.desc}</p>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-indigo-400 font-semibold group-hover:text-indigo-300">
+                <span>Launch Demo</span>
+                <span>→</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Search and Filters */}
       <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Search Input */}

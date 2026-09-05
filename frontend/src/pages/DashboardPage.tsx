@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Sparkles,
   Play,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import {
@@ -25,7 +26,7 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
-import { getDashboardMetrics, runRecoveryBatch } from '../services/api';
+import { getDashboardMetrics, runRecoveryBatch, resetDemoData } from '../services/api';
 import { DashboardMetrics, BatchRecoveryResult } from '../types';
 import { RiskBadge, RecoveryStatusBadge, RecoveryActionBadge } from '../components/common/Badge';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -57,6 +58,29 @@ export const DashboardPage: React.FC = () => {
   const [batchStep, setBatchStep] = useState(0);
   const [batchResult, setBatchResult] = useState<BatchRecoveryResult | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
+
+  // Reset Demo modal state
+  const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+
+  const handleResetDemo = async () => {
+    try {
+      setIsResetting(true);
+      await resetDemoData();
+      setResetSuccess('Demo environment restored to 500 clean payments and 150 recovery cases.');
+      await fetchMetrics();
+      window.dispatchEvent(new CustomEvent('recoverai:dataset-seeded'));
+      setTimeout(() => {
+        setResetSuccess(null);
+        setResetModalOpen(false);
+      }, 1200);
+    } catch (err: any) {
+      alert(err.response?.data?.error?.message || err.message || 'Failed to reset demo dataset');
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -168,6 +192,14 @@ export const DashboardPage: React.FC = () => {
               >
                 <span>View At-Risk Payments</span>
                 <ArrowUpRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setResetModalOpen(true)}
+                className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-slate-900/80 hover:bg-slate-800 text-rose-300 hover:text-rose-200 border border-rose-900/40 transition cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-rose-400" />
+                <span>Reset Demo</span>
               </button>
             </div>
           </div>
@@ -488,6 +520,94 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 4b. Secondary Financial Analytics: Failure Reason & Risk Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart: Revenue At Risk by Failure Reason */}
+        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <AlertOctagon className="w-4 h-4 text-rose-400" />
+              Revenue at Risk by Failure Reason
+            </h3>
+            <span className="text-xs text-slate-400">Values in ₹</span>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={(metrics.failureReasonBreakdown || []).map((item) => ({
+                  reason: item.reason,
+                  amount: item.revenueAtRiskNumeric,
+                  count: item.count,
+                }))}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 65, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                <XAxis type="number" stroke="#64748b" fontSize={10} tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} />
+                <YAxis dataKey="reason" type="category" stroke="#64748b" fontSize={10} tickLine={false} width={70} />
+                <Tooltip
+                  formatter={(value: any, _name: any, props: any) => [
+                    `${formatINR(value)} (${props.payload.count} payments)`,
+                    'At Risk',
+                  ]}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                />
+                <Bar dataKey="amount" fill="#f43f5e" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart: Risk Score Distribution */}
+        <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+              Risk Level Distribution
+            </h3>
+            <span className="text-xs text-slate-400">Case Queue</span>
+          </div>
+
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={metrics.riskDistribution || []}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={75}
+                  paddingAngle={4}
+                  dataKey="count"
+                  nameKey="level"
+                >
+                  {(metrics.riskDistribution || []).map((entry, index) => (
+                    <Cell key={`risk-cell-${index}`} fill={entry.color} stroke="#0f172a" strokeWidth={2} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: any, name: any) => [`${value} cases`, `${name} Risk`]}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-800 text-[11px]">
+            {(metrics.riskDistribution || []).map((item) => (
+              <div key={item.level} className="flex items-center justify-between p-1.5 rounded bg-slate-950/40">
+                <span className="flex items-center gap-1.5 text-slate-300">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                  {item.level}
+                </span>
+                <span className="font-semibold text-slate-200">{item.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* 5. Recent Recovery Cases Table */}
       <div className="rounded-2xl bg-slate-900/60 border border-slate-800/80 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -746,6 +866,72 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Reset Demo Confirmation Modal */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                  <RotateCcw className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Reset Demo Environment</h3>
+                  <p className="text-xs text-slate-400">Restore clean demo state</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResetModalOpen(false)}
+                disabled={isResetting}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              This action will reset all recovery executions, audit logs, and test data, restoring the pristine demo dataset of <strong>500 payments</strong> (350 Success, 80 Failed, 40 Abandoned, 30 Subscription Failed) and <strong>150 recovery cases</strong>.
+            </p>
+
+            {resetSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setResetModalOpen(false)}
+                disabled={isResetting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetDemo}
+                disabled={isResetting}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 shadow-md transition flex items-center gap-1.5"
+              >
+                {isResetting ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Resetting...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Confirm Reset</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
