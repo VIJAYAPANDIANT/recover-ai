@@ -241,7 +241,7 @@ export const DashboardLayout: React.FC = () => {
                 <span>Razorpay AI Buildathon</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                AI Revenue Recovery · Day 3 Final
+                AI Revenue Recovery Platform
               </p>
             </div>
           </div>

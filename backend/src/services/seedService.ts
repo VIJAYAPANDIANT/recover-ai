@@ -3,10 +3,17 @@ import {
   PaymentStatus,
   FailureReason,
   PaymentMethod,
+  RecoveryStatus,
+  RecoveryActionStatus,
+  RecoveryActionType,
 } from '@prisma/client';
 import Decimal from 'decimal.js';
 import prisma from '../utils/prisma.js';
 import { calculateRiskScore } from './riskScoreService.js';
+
+function formatINR(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN')}`;
+}
 
 // Pre-defined realistic Indian price points (matching hackathon specification)
 const REALISTIC_AMOUNTS = [
@@ -269,7 +276,23 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
       // For every payment that is NOT SUCCESS, generate RecoveryCase and AuditLog
       if (spec.status !== PaymentStatus.SUCCESS) {
         const risk = calculateRiskScore(spec.status, amountDecimal, spec.retryCount);
-        const caseId = `CASE-${recoveryCaseSequence++}`;
+        const currentSeq = recoveryCaseSequence++;
+        const caseId = `CASE-${currentSeq}`;
+
+        // Determine case status: keep demo cases (1001-1025) and tail cases (1086-1150) NEW for live testing.
+        // Cases 1026-1085 receive realistic historical execution data so charts are populated immediately.
+        let initialCaseStatus: RecoveryStatus = RecoveryStatus.NEW;
+        let isActionBlocked = false;
+        if (currentSeq >= 1026 && currentSeq <= 1057) {
+          initialCaseStatus = RecoveryStatus.RECOVERED;
+        } else if (currentSeq >= 1058 && currentSeq <= 1069) {
+          initialCaseStatus = RecoveryStatus.ESCALATED;
+        } else if (currentSeq >= 1070 && currentSeq <= 1079) {
+          initialCaseStatus = RecoveryStatus.ACTION_REQUIRED;
+          isActionBlocked = true;
+        } else if (currentSeq >= 1080 && currentSeq <= 1085) {
+          initialCaseStatus = RecoveryStatus.FAILED;
+        }
 
         const recoveryCase = await tx.recoveryCase.create({
           data: {
@@ -277,7 +300,7 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
             paymentId: payment.id,
             riskScore: risk.score,
             riskLevel: risk.level,
-            status: 'NEW',
+            status: initialCaseStatus,
             estimatedRecoverableAmount: amountDecimal,
             createdAt,
             updatedAt: createdAt,
@@ -306,6 +329,175 @@ export async function seedDemoDataset(): Promise<{ message: string; payments: nu
             createdAt,
           },
         });
+
+        // Populate historical AI diagnoses and execution records for processed cases (1026 - 1085)
+        if (initialCaseStatus === RecoveryStatus.RECOVERED) {
+          const actionType =
+            currentSeq % 3 === 0
+              ? RecoveryActionType.SEND_RECOVERY_MESSAGE
+              : currentSeq % 5 === 0
+              ? RecoveryActionType.OFFER_ALTERNATE_PAYMENT
+              : RecoveryActionType.RETRY_PAYMENT;
+
+          await tx.aIAnalysis.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              diagnosis: `Autonomous AI analysis detected transient ${spec.failureReason.replace(/_/g, ' ').toLowerCase()} during payment settlement.`,
+              recommendedAction: actionType,
+              reason: 'Transient gateway error condition; automated bounded recovery approved by policy engine.',
+              confidence: 0.91,
+              expectedRecoveryProbability: 0.86,
+              provider: 'gemini',
+              model: 'gemini-2.5-flash',
+              createdAt,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              paymentId: payment.id,
+              recoveryCaseId: recoveryCase.id,
+              eventType: 'ACTION_APPROVED',
+              message: `Policy Engine approved action ${actionType} for case ${caseId}`,
+              metadata: { actionType, rule: 'STANDARD_BOUNDED_RECOVERY' },
+              createdAt,
+            },
+          });
+
+          await tx.recoveryAction.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              actionType,
+              status: RecoveryActionStatus.SUCCESS,
+              reason: 'Bounded recovery action executed successfully; full revenue credited.',
+              amount: amountDecimal,
+              executedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              paymentId: payment.id,
+              recoveryCaseId: recoveryCase.id,
+              eventType: 'RECOVERY_SUCCEEDED',
+              message: `Successfully recovered ${formatINR(amountDecimal.toNumber())} via ${actionType}`,
+              metadata: { amount: amountDecimal.toNumber(), actionType },
+              createdAt,
+            },
+          });
+        } else if (initialCaseStatus === RecoveryStatus.ESCALATED) {
+          await tx.aIAnalysis.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              diagnosis: `Telemetry indicates persistent ${spec.failureReason.replace(/_/g, ' ').toLowerCase()} or elevated risk.`,
+              recommendedAction: RecoveryActionType.HUMAN_ESCALATION,
+              reason: 'Policy rules require human operator review before further processing.',
+              confidence: 0.84,
+              expectedRecoveryProbability: 0.45,
+              provider: 'gemini',
+              model: 'gemini-2.5-flash',
+              createdAt,
+            },
+          });
+
+          await tx.recoveryAction.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              actionType: RecoveryActionType.HUMAN_ESCALATION,
+              status: RecoveryActionStatus.ESCALATED,
+              reason: 'Diverted to human ops queue for VIP / manual reconciliation.',
+              amount: amountDecimal,
+              executedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              paymentId: payment.id,
+              recoveryCaseId: recoveryCase.id,
+              eventType: 'CASE_ESCALATED',
+              message: `Case ${caseId} escalated to human operator due to policy guardrails`,
+              metadata: { reason: 'Policy rule diversion' },
+              createdAt,
+            },
+          });
+        } else if (isActionBlocked) {
+          await tx.aIAnalysis.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              diagnosis: `Failure reason: ${spec.failureReason.replace(/_/g, ' ').toLowerCase()}; evaluated against safety rules.`,
+              recommendedAction: RecoveryActionType.NO_ACTION,
+              reason: 'Safety policy blocked automatic re-attempts (privacy opt-out or rule threshold).',
+              confidence: 0.89,
+              expectedRecoveryProbability: 0.2,
+              provider: 'gemini',
+              model: 'gemini-2.5-flash',
+              createdAt,
+            },
+          });
+
+          await tx.recoveryAction.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              actionType: RecoveryActionType.NO_ACTION,
+              status: RecoveryActionStatus.BLOCKED,
+              reason: 'Blocked by Policy Engine: Customer communication opt-out or safety limit.',
+              amount: amountDecimal,
+              executedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              paymentId: payment.id,
+              recoveryCaseId: recoveryCase.id,
+              eventType: 'ACTION_BLOCKED',
+              message: `Policy Engine blocked action for case ${caseId}`,
+              metadata: { rule: 'CUSTOMER_OPT_OUT_OR_LIMIT' },
+              createdAt,
+            },
+          });
+        } else if (initialCaseStatus === RecoveryStatus.FAILED) {
+          await tx.aIAnalysis.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              diagnosis: `Attempted retry for ${spec.failureReason.replace(/_/g, ' ').toLowerCase()}; payment declined again.`,
+              recommendedAction: RecoveryActionType.RETRY_PAYMENT,
+              reason: 'Bank decline persisted across secondary attempt; stopping rules invoked.',
+              confidence: 0.72,
+              expectedRecoveryProbability: 0.3,
+              provider: 'gemini',
+              model: 'gemini-2.5-flash',
+              createdAt,
+            },
+          });
+
+          await tx.recoveryAction.create({
+            data: {
+              recoveryCaseId: recoveryCase.id,
+              actionType: RecoveryActionType.RETRY_PAYMENT,
+              status: RecoveryActionStatus.FAILED,
+              reason: 'Secondary gateway attempt declined by issuer.',
+              amount: amountDecimal,
+              executedAt: createdAt,
+              createdAt,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              paymentId: payment.id,
+              recoveryCaseId: recoveryCase.id,
+              eventType: 'RECOVERY_FAILED',
+              message: `Recovery attempt failed for case ${caseId}; automatic retries halted.`,
+              metadata: { stoppingRule: true },
+              createdAt,
+            },
+          });
+        }
       }
     }
 

@@ -91,7 +91,7 @@ export async function getHealthCheck(): Promise<{ status: string; service: strin
   return response.data;
 }
 
-// --- Day 2 API Functions ---
+// --- AI Diagnostic & Recovery Execution APIs ---
 
 export async function analyzeCaseWithAI(
   caseId: string,
@@ -160,7 +160,7 @@ export async function executeRecoveryAction(
   return response.data;
 }
 
-// --- Day 3 API Functions ---
+// --- Batch Execution & Analytics APIs ---
 
 export async function runRecoveryBatch(
   limit: number = 50,

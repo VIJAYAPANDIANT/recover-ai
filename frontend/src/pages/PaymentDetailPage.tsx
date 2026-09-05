@@ -194,7 +194,7 @@ export const PaymentDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* AI Analysis Section (Day 2 Placeholder as requested) */}
+          {/* AI Analysis Section */}
           <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900/90 via-indigo-950/20 to-slate-900/90 border border-indigo-500/20 shadow-lg relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
@@ -203,29 +203,36 @@ export const PaymentDetailPage: React.FC = () => {
                 </div>
                 <h3 className="text-sm font-semibold text-indigo-200">AI Diagnostic & Recovery Engine</h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-950 text-indigo-400 border border-indigo-800/50 uppercase tracking-wider">
-                Coming in Day 2
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800/50 uppercase tracking-wider">
+                {payment.recoveryCase ? 'Active Case' : 'Settled'}
               </span>
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed max-w-xl mb-4">
-              Autonomous AI root-cause diagnosis, payment gateway telemetry interpretation, and targeted smart retry schedule recommendation will be activated in Day 2.
+              {payment.recoveryCase
+                ? `Autonomous AI failure diagnosis, policy evaluation, and bounded interventions are enabled for this transaction.`
+                : `This transaction completed successfully with zero revenue risk. No recovery interventions required.`}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                <span className="font-semibold text-slate-300 block mb-1">Root Cause</span>
-                <span className="text-slate-400 italic">Available in Day 2</span>
+            {payment.recoveryCase && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <div>
+                  <span className="text-xs font-medium text-slate-300 block">
+                    Case {payment.recoveryCase.caseId} · {payment.recoveryCase.status}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Risk Score: {payment.recoveryCase.riskScore}/100 ({payment.recoveryCase.riskLevel})
+                  </span>
+                </div>
+                <Link
+                  to={`/recovery-cases/${payment.recoveryCase.id}`}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition shadow-sm inline-flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Inspect AI Diagnosis & Recovery →</span>
+                </Link>
               </div>
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                <span className="font-semibold text-slate-300 block mb-1">Recommended Action</span>
-                <span className="text-slate-400 italic">Available in Day 2</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                <span className="font-semibold text-slate-300 block mb-1">Predicted Recovery %</span>
-                <span className="text-slate-400 italic">Available in Day 2</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
