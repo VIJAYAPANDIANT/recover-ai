@@ -10,6 +10,14 @@ import { RecoveryAnalyticsPage } from './pages/RecoveryAnalyticsPage';
 import { AuditLogsPage } from './pages/AuditLogsPage';
 
 export const App: React.FC = () => {
+  React.useEffect(() => {
+    document.title = 'RecoverAI | AI Revenue Recovery Platform';
+    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (link) {
+      link.href = '/favicon.svg';
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

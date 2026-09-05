@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="recoverai_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="glow_grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#090d16" stroke="url(#recoverai_grad)" stroke-width="2.5" />
+  <rect x="5" y="5" width="54" height="54" rx="13" fill="url(#glow_grad)" opacity="0.15" />
+  <path d="M 44 25 C 42 18 35 14 27 15 C 18 16 12 24 13 33 C 14 42 22 48 31 48 C 39 48 46 42 47 35" 
+        stroke="url(#recoverai_grad)" stroke-width="4.5" stroke-linecap="round" fill="none" />
+  <polygon points="41,16 48,24 39,26" fill="#14b8a6" />
+  <path d="M 32 23 L 34.5 29 L 40.5 31 L 34.5 33 L 32 39 L 29.5 33 L 23.5 31 L 29.5 29 Z" fill="#38bdf8" />
+  <circle cx="32" cy="31" r="2" fill="#ffffff" />
+  <circle cx="43" cy="41" r="1.8" fill="#2dd4bf" />
+</svg>

@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Menu,
   X,
-  Sparkles,
   RotateCcw,
   ShieldCheck,
   Cpu,
@@ -113,9 +112,9 @@ export const DashboardLayout: React.FC = () => {
           {/* Brand Header */}
           <div className="p-6 border-b border-slate-800/60 flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-cyan-400 p-0.5 shadow-lg shadow-teal-500/20">
-                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-teal-400" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 via-cyan-400 to-indigo-500 p-0.5 shadow-lg shadow-teal-500/20">
+                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center p-1">
+                  <img src="/favicon.svg" alt="RecoverAI Logo" className="w-6 h-6 object-contain" />
                 </div>
               </div>
               <div>
